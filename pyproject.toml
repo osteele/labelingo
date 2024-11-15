@@ -1,0 +1,23 @@
+[project]
+name = "labelingo"
+version = "0.1.0"
+description = "Add callouts and translations to UI screenshots using Claude"
+authors = [
+    { name="Oliver Steele", email="steele@osteele.com" }
+]
+repository = "https://github.com/osteele/labelingo"
+requires-python = ">=3.9"
+dependencies = [
+    "click",
+    "anthropic",
+    "pillow",
+    "python-dotenv"
+]
+
+[project.scripts]
+labelingo = "labelingo.cli:main"
+labelingo1 = "labelingo.labelingo1:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
