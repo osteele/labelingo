@@ -1,29 +1,13 @@
 import locale
-import platform
-import subprocess
-import sys
 import webbrowser
 from pathlib import Path
 
 import click
-from anthropic import Anthropic
 from PIL import Image
 
 from .annotator import SVGAnnotator
-from .vision import analyze_ui, AnalysisSettings
-
-
-def open_file(path: Path):
-    """Open a file with the default system application"""
-    try:
-        if platform.system() == "Darwin":  # macOS
-            subprocess.run(["open", str(path)])
-        elif platform.system() == "Windows":  # Windows
-            subprocess.run(["start", str(path)], shell=True)
-        else:  # Linux and others
-            subprocess.run(["xdg-open", str(path)])
-    except Exception as e:
-        print(f"Failed to open file: {e}", file=sys.stderr)
+from .ocr import analyze_ui, AnalysisSettings
+from .utils import open_file
 
 
 @click.command()

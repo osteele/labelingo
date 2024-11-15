@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import List
-import os
 import base64
-from .vision import UIElement, get_rotated_image_data
 import html
+
+from .utils import get_rotated_image_data
+from .ocr import UIElement
 
 class SVGAnnotator:
     def __init__(self, image_path: Path, width: int, height: int, max_width: int = 1200, debug: bool = False):

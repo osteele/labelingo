@@ -2,7 +2,7 @@ import base64
 import hashlib
 import json
 import re
-import sys
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple, Literal
@@ -14,13 +14,33 @@ from anthropic import (
     APIError,
     BadRequestError,
 )
-
-from .response_cache import ResponseCache
-
+from dotenv import load_dotenv
 from PIL import Image
 
-import os
-from dotenv import load_dotenv
+from .response_cache import ResponseCache
+from .utils import get_rotated_image_data, preprocess_image  # Import from utils
+
+# Define the valid backend types
+BackendType = Literal["claude", "tesseract", "easyocr", "paddleocr"]
+
+@dataclass
+class AnalysisSettings:
+    image_path: Path
+    target_lang: str
+    backend: BackendType = "claude"
+    no_cache: bool = False
+    debug: bool = False
+
+@dataclass
+class UIElement:
+    text: str
+    translation: str
+    bbox: Tuple[int, int, int, int]  # x1, y1, x2, y2
+
+@dataclass
+class AnalysisResult:
+    image_dimensions: Tuple[int, int]  # width, height
+    elements: List[UIElement]
 
 # Lazy imports for OCR backends
 def import_ocr_backend(backend: str):
@@ -63,13 +83,6 @@ def import_ocr_backend(backend: str):
     return None
 
 
-@dataclass
-class UIElement:
-    text: str
-    translation: str
-    bbox: Tuple[int, int, int, int]  # x1, y1, x2, y2
-
-
 def get_analysis_prompt(target_lang: str) -> str:
     return f"""
     Analyze this UI screenshot. First, tell me the dimensions of the image you're analyzing.
@@ -100,70 +113,6 @@ def get_analysis_prompt(target_lang: str) -> str:
     """
 
 
-@dataclass
-class AnalysisResult:
-    image_dimensions: Tuple[int, int]  # width, height
-    elements: List[UIElement]
-
-
-def get_rotated_image_data(image_path: Path) -> Tuple[bytes, Tuple[int, int]]:
-    """Read image file, rotate according to EXIF, and return base64 data and dimensions"""
-    from PIL import ExifTags, Image
-
-    MAX_DIMENSION = 1568
-
-    with Image.open(image_path) as img:
-        # Get EXIF rotation
-        try:
-            for orientation in ExifTags.TAGS.keys():
-                if ExifTags.TAGS[orientation] == "Orientation":
-                    break
-
-            exif = dict(img._getexif().items())
-            if orientation in exif:
-                if exif[orientation] == 3:
-                    img = img.rotate(180, expand=True)
-                elif exif[orientation] == 6:
-                    img = img.rotate(270, expand=True)
-                elif exif[orientation] == 8:
-                    img = img.rotate(90, expand=True)
-        except (AttributeError, KeyError, IndexError):
-            # No EXIF data or no orientation tag
-            pass
-
-        # Rescale if necessary
-        width, height = img.size
-        if width > MAX_DIMENSION or height > MAX_DIMENSION:
-            scale = MAX_DIMENSION / max(width, height)
-            new_width = int(width * scale)
-            new_height = int(height * scale)
-            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-        # Convert to RGB if necessary (e.g., for PNGs)
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-
-        # Save to bytes
-        from io import BytesIO
-
-        buffer = BytesIO()
-        img.save(buffer, format="JPEG", quality=95)
-        image_data = buffer.getvalue()
-
-        return image_data, img.size
-
-
-# Define the valid backend types
-BackendType = Literal["claude", "tesseract", "easyocr", "paddleocr"]
-
-@dataclass
-class AnalysisSettings:
-    image_path: Path
-    target_lang: str
-    backend: BackendType = "claude"
-    no_cache: bool = False
-    debug: bool = False
-
 def analyze_ui(
     settings: AnalysisSettings,
 ) -> AnalysisResult:
@@ -185,7 +134,11 @@ def analyze_ui(
     if settings.backend == "claude":
         return analyze_with_claude(settings)
     else:
-        elements = backends[settings.backend](settings.image_path, settings.target_lang)
+        elements = backends[settings.backend](
+            settings.image_path,
+            settings.target_lang,
+            debug=settings.debug
+        )
         return AnalysisResult(
             image_dimensions=Image.open(settings.image_path).size,
             elements=elements
@@ -328,26 +281,51 @@ def analyze_with_tesseract(image_path: Path, lang_code: str) -> List[UIElement]:
         raise click.ClickException(f"Error during OCR: {str(e)}")
 
 
-def analyze_with_easyocr(image_path: Path, lang_code: str) -> List[UIElement]:
+def analyze_with_easyocr(image_path: Path, lang_code: str, debug: bool = False) -> List[UIElement]:
     """Analyze using EasyOCR with support for multiple languages"""
     easyocr = import_ocr_backend("easyocr")
 
-    # Convert language code to EasyOCR format
-    lang_map = {
-        'en': ['en'],
-        'fr': ['fr'],
-        'de': ['de'],
-        'es': ['es'],
-        'it': ['it'],
-        'pt': ['pt'],
-        'zh': ['ch_sim'],  # Chinese simplified
-        'ja': ['ja'],      # Japanese
-        'ko': ['ko']       # Korean
+    # Available languages in EasyOCR
+    available_langs = {
+        'en', 'ch_sim', 'ch_tra', 'ja', 'ko', 'th', 'ta', 'te', 'kn',
+        'bn', 'ar', 'hi', 'ne', 'fr', 'de', 'cy', 'ru', 'uk', 'be',
+        'bg', 'cs', 'sk', 'sl', 'hr', 'nl', 'hu', 'da', 'it', 'es',
+        'el', 'pl', 'pt', 'ro', 'lv', 'lt', 'et', 'vi', 'tr', 'fa',
+        'ur', 'id', 'ms', 'tl', 'sw', 'az', 'uz', 'kk', 'mn', 'my',
+        'si', 'am', 'af', 'ka', 'hy', 'he', 'yi', 'ug', 'mi'
     }
 
-    easyocr_langs = lang_map.get(lang_code, ['en'])  # Default to English if unknown
+    if debug:
+        print(f"Available EasyOCR languages: {', '.join(sorted(available_langs))}")
+
+    # Convenience mapping for common language codes
+    lang_map = {
+        'zh': 'ch_sim',    # Chinese Simplified
+        'zh-CN': 'ch_sim', # Chinese Simplified (alternate code)
+        'zh-HK': 'ch_tra', # Chinese Traditional (Hong Kong)
+        'zh-TW': 'ch_tra', # Chinese Traditional (Taiwan)
+        'jp': 'ja',        # Alternative code for Japanese
+    }
 
     try:
+        # Convert language code using mapping, or use original if not in mapping
+        easyocr_lang = lang_map.get(lang_code, lang_code)
+
+        if easyocr_lang not in available_langs:
+            raise ValueError(
+                f"Unsupported language code: {lang_code}\n"
+                f"Available languages: {', '.join(sorted(available_langs))}"
+            )
+
+        # Construct language list
+        easyocr_langs = [easyocr_lang]
+        if easyocr_lang not in ['en', 'ja', 'ko', 'ch_sim', 'ch_tra']:
+            # EasyOCR requires English model for non-Asian languages
+            easyocr_langs = ['en'] + easyocr_langs
+
+        if debug:
+            print(f"Using EasyOCR with languages: {easyocr_langs}")
+
         # Open and preprocess image
         image = Image.open(image_path)
 
