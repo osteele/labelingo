@@ -1,25 +1,29 @@
-from dataclasses import dataclass
-from pathlib import Path
-from typing import List, Tuple, Optional
-from anthropic import (
-    Anthropic,
-    APIConnectionError,
-    BadRequestError,
-    APIError,
-)
 import base64
+import hashlib
 import json
 import re
 import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional, Tuple
+
 import click
-import hashlib
+from anthropic import (
+    Anthropic,
+    APIConnectionError,
+    APIError,
+    BadRequestError,
+)
+
 from .response_cache import ResponseCache
+
 
 @dataclass
 class UIElement:
     text: str
     translation: str
     bbox: Tuple[int, int, int, int]  # x1, y1, x2, y2
+
 
 def get_analysis_prompt(target_lang: str) -> str:
     return f"""
@@ -50,20 +54,24 @@ def get_analysis_prompt(target_lang: str) -> str:
     - If text is already in {target_lang}, use it as the translation
     """
 
+
 @dataclass
 class AnalysisResult:
     image_dimensions: Tuple[int, int]  # width, height
     elements: List[UIElement]
 
+
 def get_rotated_image_data(image_path: Path) -> Tuple[bytes, Tuple[int, int]]:
     """Read image file, rotate according to EXIF, and return base64 data and dimensions"""
-    from PIL import Image, ExifTags
+    from PIL import ExifTags, Image
+
+    MAX_DIMENSION = 1568
 
     with Image.open(image_path) as img:
         # Get EXIF rotation
         try:
             for orientation in ExifTags.TAGS.keys():
-                if ExifTags.TAGS[orientation] == 'Orientation':
+                if ExifTags.TAGS[orientation] == "Orientation":
                     break
 
             exif = dict(img._getexif().items())
@@ -78,61 +86,85 @@ def get_rotated_image_data(image_path: Path) -> Tuple[bytes, Tuple[int, int]]:
             # No EXIF data or no orientation tag
             pass
 
+        # Rescale if necessary
+        width, height = img.size
+        if width > MAX_DIMENSION or height > MAX_DIMENSION:
+            scale = MAX_DIMENSION / max(width, height)
+            new_width = int(width * scale)
+            new_height = int(height * scale)
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
         # Convert to RGB if necessary (e.g., for PNGs)
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
+        if img.mode != "RGB":
+            img = img.convert("RGB")
 
         # Save to bytes
         from io import BytesIO
+
         buffer = BytesIO()
-        img.save(buffer, format='JPEG')
+        img.save(buffer, format="JPEG", quality=95)
         image_data = buffer.getvalue()
 
         return image_data, img.size
 
-def analyze_ui(client: Anthropic, image_path: Path, target_lang: str, *, no_cache: bool = False, debug: bool = False) -> AnalysisResult:
+
+def analyze_ui(
+    client: Anthropic,
+    image_path: Path,
+    target_lang: str,
+    *,
+    no_cache: bool = False,
+    debug: bool = False,
+) -> AnalysisResult:
     """Analyze UI screenshot and return dimensions and list of UI elements with translations"""
-    print("Reading and processing image...")
+    if debug:
+        print("Reading and processing image...")
     image_data, (actual_width, actual_height) = get_rotated_image_data(image_path)
 
+    # Calculate image hash
+    image_hash = hashlib.sha256(image_data).hexdigest()
+
     prompt = get_analysis_prompt(target_lang)
+    # Combine image and prompt hashes
+    prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
+    cache_key = f"{image_hash}_{prompt_hash}"
+    api_endpoint = "https://api.anthropic.com/v1/"
+
     cache = ResponseCache()
-    cached_response = None if no_cache else cache.get(image_path, target_lang, prompt)
+    cached_response = None if no_cache else cache.get(api_endpoint, cache_key)
 
     if cached_response:
         if debug:
             print("Using cached analysis...")
         response_text = cached_response
     else:
-        print("Analyzing image with Claude AI...")
-        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        image_base64 = base64.b64encode(image_data).decode("utf-8")
 
         try:
-            print("Waiting for response...", end='', flush=True)
+            print("Analyzing image with Claude AI...", end="", flush=True)
             response = client.messages.create(
                 model="claude-3-opus-20240229",
                 max_tokens=1024,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/jpeg",
-                                "data": image_base64
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": prompt
-                        }
-                    ]
-                }]
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": image_base64,
+                                },
+                            },
+                            {"type": "text", "text": prompt},
+                        ],
+                    }
+                ],
             )
-            print(" done")
+            print("done")
             response_text = response.content[0].text
-            cache.set(image_path, target_lang, prompt, response_text)
+            cache.set(api_endpoint, cache_key, response_text)
         except APIConnectionError as e:
             print(" failed")  # Complete the progress line in case of error
             raise click.ClickException(
@@ -152,9 +184,10 @@ def analyze_ui(client: Anthropic, image_path: Path, target_lang: str, *, no_cach
                 f"Response details: {getattr(e, 'response', 'No response details available')}"
             )
 
-    print("Processing response...")
+    if debug:
+        print("Response:", response_text)
     try:
-        match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        match = re.search(r"\{.*\}", response_text, re.DOTALL)
         if not match:
             raise ValueError("No JSON found in response")
 
@@ -184,8 +217,8 @@ def analyze_ui(client: Anthropic, image_path: Path, target_lang: str, *, no_cach
                     int(elem["bbox"][0] * width_scale),
                     int(elem["bbox"][1] * height_scale),
                     int(elem["bbox"][2] * width_scale),
-                    int(elem["bbox"][3] * height_scale)
-                )
+                    int(elem["bbox"][3] * height_scale),
+                ),
             )
             for elem in data["elements"]
         ]
@@ -194,10 +227,10 @@ def analyze_ui(client: Anthropic, image_path: Path, target_lang: str, *, no_cach
             print(f"First element bbox in Claude space: {data['elements'][0]['bbox']}")
             print(f"First element bbox in image space: {elements[0].bbox}")
 
-        print(f"Found {len(data['elements'])} text elements")
+        if debug:
+            print(f"Found {len(data['elements'])} text elements")
         return AnalysisResult(
-            image_dimensions=(actual_width, actual_height),
-            elements=elements
+            image_dimensions=(actual_width, actual_height), elements=elements
         )
 
     except Exception as e:
