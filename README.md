@@ -7,7 +7,11 @@ callouts and translations.
 
 ## Features
 
-- 🔍 Automatic UI element detection using Claude's vision capabilities
+- 🔍 Multiple OCR backends:
+  - Claude Vision for cloud-based analysis
+  - Tesseract for local processing
+  - EasyOCR for enhanced Asian language support
+  - PaddleOCR for state-of-the-art accuracy
 - 🌐 Translation to any language, within the limits of LLM translation
     (defaults to system language)
 - 🎯 Visual callouts with numbered circles
@@ -36,6 +40,20 @@ Install dependencies:
 uv install
 ```
 
+### Optional OCR Backends
+
+To use alternative OCR backends:
+
+```bash
+# For PaddleOCR:
+pip install paddlepaddle  # Install PaddlePaddle first
+uv pip install -e '.[ocr]'  # Then install OCR dependencies
+
+# For Tesseract:
+brew install tesseract tesseract-lang  # macOS
+sudo apt-get install tesseract-ocr tesseract-ocr-chi-sim  # Ubuntu/Debian
+```
+
 ## Configuration
 
 Create a `.env` file in the project root:
@@ -46,9 +64,16 @@ ANTHROPIC_API_KEY=your_api_key_here
 
 ## Usage
 
-Basic usage (translates to system language):
+Basic usage (using Claude backend):
 ```bash
 labelingo screenshot.png
+```
+
+Using alternative OCR backends:
+```bash
+labelingo screenshot.png --backend tesseract
+labelingo screenshot.png --backend easyocr
+labelingo screenshot.png --backend paddleocr
 ```
 
 Specify language:
@@ -78,13 +103,16 @@ labelingo screenshot.png --no-cache             # Skip using cached responses
 - `--open`: Open the output with system default application
 - `--debug`: Show debug information
 - `--no-cache`: Skip using cached responses
+- `--backend`: OCR backend to use (claude, tesseract, easyocr, paddleocr)
 
 ## Requirements
 
 - Python 3.9+
-- Anthropic API key
-- PIL/Pillow for image processing
-- Click for CLI interface
+- Anthropic API key (for Claude backend)
+- Optional OCR backends:
+  - Tesseract OCR
+  - EasyOCR
+  - PaddleOCR
 
 ## Credits
 
