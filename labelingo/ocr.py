@@ -156,6 +156,24 @@ def analyze_ui(image: Image.Image, settings: AnalysisSettings) -> AnalysisResult
             source_language=source_language,
         )
 
+    # Debug output for comparing OCR and OpenAI results
+    if settings.debug:
+        ocr_texts = {element.text for element in result.elements}
+        openai_texts = set(openai_translations.keys())
+
+        ocr_only = ocr_texts - openai_texts
+        openai_only = openai_texts - ocr_texts
+
+        if ocr_only:
+            print("\nTexts found by OCR but not by OpenAI:")
+            for text in sorted(ocr_only):
+                print(f"  • {text}")
+
+        if openai_only:
+            print("\nTexts found by OpenAI but not by OCR:")
+            for text in sorted(openai_only):
+                print(f"  • {text}")
+
     # Update existing elements with translations
     for element in result.elements:
         if not element.translation or element.translation == element.text:
