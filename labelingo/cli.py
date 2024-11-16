@@ -9,16 +9,16 @@ import click
 from PIL import Image
 
 from .annotator import SVGAnnotator
-from .svg_converter import save_with_format
 from .ocr import AnalysisSettings, analyze_ui
+from .response_cache import ResponseCache
+from .svg_converter import save_with_format
 from .types import BackendType, OutputFormat
 from .utils import get_rotated_image_data, open_file
-from .response_cache import ResponseCache
 
 
 @click.command()
-@click.argument("image_path", type=click.Path(exists=True), required=False)
-@click.option("--output", "-o", type=click.Path(), help="Output SVG file path")
+@click.argument("image_paths", type=click.Path(exists=True), nargs=-1, required=False)
+@click.option("--output", "-o", type=click.Path(), help="Output directory for files")
 @click.option("--language", "-l", help="Target language for translations")
 @click.option("--preview/--no-preview", default=False, help="Preview in web browser")
 @click.option(
@@ -44,7 +44,7 @@ from .response_cache import ResponseCache
     help="OCR backend to use for text detection",
 )
 def main(
-    image_path: str | None,
+    image_paths: tuple[str, ...] | tuple[()],
     output: str | None,
     language: str | None,
     preview: bool,
@@ -62,28 +62,15 @@ def main(
         print("Cache cleared successfully")
         return
 
-    if not image_path:
-        raise click.UsageError("Image path is required unless using --clear-cache")
-
-    input_path = Path(image_path)
-
-    # Load and rotate image based on EXIF
-    try:
-        image_data = get_rotated_image_data(input_path)
-        image = Image.open(io.BytesIO(image_data))
-    except Exception as e:
-        raise click.ClickException(f"Failed to load image: {str(e)}")
-
-    output_format = infer_output_format(output, format)
-
-    # Determine output path
-    if output:
-        output_path = output
-    else:
-        input_path = Path(image_path)
-        output_path = str(
-            input_path.parent / f"{input_path.stem}-annotated.{output_format}"
+    if not image_paths:
+        raise click.UsageError(
+            "At least one image path is required unless using --clear-cache"
         )
+
+    # Convert output to Path if specified
+    output_dir = Path(output) if output else None
+    if output_dir and not output_dir.exists():
+        output_dir.mkdir(parents=True)
 
     # Default language: use system locale
     if not language:
@@ -91,13 +78,53 @@ def main(
         language = locale_info.split("_")[0] if locale_info else "en"
 
     backend_type = cast(BackendType, backend.lower())
-
     settings = AnalysisSettings(
         target_lang=language,
         backend=backend_type,
         no_cache=no_cache,
         debug=debug,
     )
+
+    for image_path in image_paths:
+        try:
+            process_image(
+                Path(image_path),
+                output_dir,
+                settings,
+                preview,
+                open_file_flag,
+                debug,
+                format,
+            )
+        except Exception as e:
+            print(f"Error processing {image_path}: {e}", file=sys.stderr)
+
+
+def process_image(
+    input_path: Path,
+    output_dir: Path | None,
+    settings: AnalysisSettings,
+    preview: bool,
+    open_file_flag: bool,
+    debug: bool,
+    format: str | None,
+) -> None:
+    """Process a single image file."""
+    # Load and rotate image based on EXIF
+    try:
+        image_data = get_rotated_image_data(input_path)
+        image = Image.open(io.BytesIO(image_data))
+    except Exception as e:
+        raise click.ClickException(f"Failed to load image: {str(e)}")
+
+    # Determine output path
+    output_format = infer_output_format(None, format)
+    if output_dir:
+        output_path = str(output_dir / f"{input_path.stem}-annotated.{output_format}")
+    else:
+        output_path = str(
+            input_path.parent / f"{input_path.stem}-annotated.{output_format}"
+        )
 
     # Create annotator with debug flag
     annotator = SVGAnnotator(image, debug=debug)
