@@ -3,7 +3,7 @@ import subprocess
 import sys
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Optional, Tuple, cast
+from typing import Any, Tuple, cast
 
 from PIL import ExifTags, Image
 
@@ -40,7 +40,7 @@ def get_rotated_image_data(image_path: Path, max_dimension: int = 1568) -> bytes
         return image_data
 
 
-def get_image_exif(img: Image.Image) -> Optional[dict[int, Any]]:
+def get_image_exif(img: Image.Image) -> dict[int, Any] | None:
     """Safely get EXIF data from an image, returning None if not available"""
     if not hasattr(img, "_getexif"):
         return None

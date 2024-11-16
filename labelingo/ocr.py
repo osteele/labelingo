@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 import re
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, List
 
 import click
 from anthropic import (
@@ -27,8 +27,9 @@ if TYPE_CHECKING:
 
 OCR_BACKEND_VERSION = 2
 
+
 # Lazy imports for OCR backends
-def import_ocr_backend(backend: str) -> Optional[Any]:
+def import_ocr_backend(backend: str) -> Any | None:
     """Import OCR backend module safely with proper type handling"""
     if backend == "tesseract":
         try:

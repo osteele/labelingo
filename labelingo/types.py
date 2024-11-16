@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Literal, Optional, Tuple
+from typing import List, Literal, Tuple
 
 # Define the valid backend types
 BackendType = Literal["claude", "tesseract", "easyocr", "paddleocr"]
@@ -25,5 +25,5 @@ class UIElement:
 @dataclass
 class AnalysisResult:
     elements: List[UIElement]
-    source_language: Optional[str] = None
+    source_language: str | None = None
     title: str | None = None
