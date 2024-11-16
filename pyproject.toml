@@ -1,7 +1,7 @@
 [project]
 name = "labelingo"
 version = "0.1.0"
-description = "Add callouts and translations to UI screenshots using Claude"
+description = "Add callouts and translations to control panel and UI screenshots"
 authors = [
     { name="Oliver Steele", email="steele@osteele.com" }
 ]
@@ -11,13 +11,18 @@ dependencies = [
     "click",
     "anthropic",
     "pillow",
-    "python-dotenv"
+    "python-dotenv",
+    "easyocr"
+]
+keywords = [
+    "ocr",
+    "translation",
+    "callouts",
 ]
 
 [project.optional-dependencies]
 ocr = [
     "pytesseract",
-    "easyocr",
     "paddleocr",
 ]
 

@@ -8,9 +8,9 @@ callouts and translations.
 ## Features
 
 - 🔍 Multiple OCR backends:
+  - EasyOCR (default) for enhanced Asian language support
   - Claude Vision for cloud-based analysis
   - Tesseract for local processing
-  - EasyOCR for enhanced Asian language support
   - PaddleOCR for state-of-the-art accuracy
 - 🌐 Translation to any language, within the limits of LLM translation
     (defaults to system language)
@@ -64,15 +64,15 @@ ANTHROPIC_API_KEY=your_api_key_here
 
 ## Usage
 
-Basic usage (using Claude backend):
+Basic usage (using EasyOCR backend):
 ```bash
 labelingo screenshot.png
 ```
 
 Using alternative OCR backends:
 ```bash
+labelingo screenshot.png --backend claude
 labelingo screenshot.png --backend tesseract
-labelingo screenshot.png --backend easyocr
 labelingo screenshot.png --backend paddleocr
 ```
 
@@ -111,7 +111,6 @@ labelingo screenshot.png --no-cache             # Skip using cached responses
 - Anthropic API key (for Claude backend)
 - Optional OCR backends:
   - Tesseract OCR
-  - EasyOCR
   - PaddleOCR
 
 ## Credits

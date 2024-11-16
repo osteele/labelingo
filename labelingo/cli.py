@@ -6,7 +6,7 @@ import click
 from PIL import Image
 
 from .annotator import SVGAnnotator
-from .ocr import analyze_ui, AnalysisSettings
+from .ocr import AnalysisSettings, analyze_ui
 from .utils import open_file
 
 
@@ -26,7 +26,7 @@ from .utils import open_file
 @click.option(
     "--backend",
     type=click.Choice(["claude", "tesseract", "easyocr", "paddleocr"]),
-    default="claude",
+    default="easyocr",
     help="OCR backend to use for text detection",
 )
 def main(
