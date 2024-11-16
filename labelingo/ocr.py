@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     import pytesseract  # type: ignore # noqa: F401
     from paddleocr import PaddleOCR  # type: ignore  # noqa: F401
 
+# Add near the top of the file with other constants
+OCR_BACKEND_VERSION = 1
 
 # Lazy imports for OCR backends
 def import_ocr_backend(backend: str) -> Optional[Any]:
@@ -117,8 +119,38 @@ def analyze_ui(image: Image.Image, settings: AnalysisSettings) -> AnalysisResult
             "paddleocr": analyze_with_paddleocr,
         }[settings.backend]
 
-        print(f"Analyzing with {settings.backend} backend...")
-        elements = backend_fn(image, source_language)
+        # Calculate cache key using backend name, version, and image hash
+        image_hash = hashlib.sha256(image.tobytes()).hexdigest()
+        cache_key = f"ocr_{settings.backend}_v{OCR_BACKEND_VERSION}_{image_hash}"
+
+        cache = ResponseCache()
+        cached_json = None if settings.no_cache else cache.get("ocr", cache_key)
+
+        if cached_json is not None:
+            try:
+                cached_data = json.loads(cached_json)
+                elements = [
+                    UIElement(
+                        text=elem["text"],
+                        translation=elem["translation"],
+                        bbox=tuple(elem["bbox"]),
+                    )
+                    for elem in cached_data
+                ]
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"Warning: Failed to load cached data: {e}")
+                elements = None
+
+        if cached_json is None or elements is None:
+            print(f"Analyzing with {settings.backend} backend...")
+            elements = backend_fn(image, source_language)
+            # Cache the elements as JSON
+            elements_data = [
+                {"text": elem.text, "translation": elem.translation, "bbox": elem.bbox}
+                for elem in elements
+            ]
+            cache.set("ocr", cache_key, json.dumps(elements_data))
+
         result = AnalysisResult(
             image_dimensions=image.size,
             elements=elements,
