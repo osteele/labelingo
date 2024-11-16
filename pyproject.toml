@@ -11,7 +11,7 @@ dependencies = [
     "anthropic>=0.7.0",
     "python-dotenv>=1.0.0",
     "easyocr>=1.7.0",
-    "openai>=1.0.0"
+    "openai>=1.0.0",
 ]
 requires-python = ">=3.9"
 readme = "README.md"
@@ -49,4 +49,37 @@ packages = ["labelingo"]
 dev-dependencies = [
     "pyright>=1.1.389",
     "ruff>=0.7.4",
+]
+
+[tool.pyright]
+include = ["labelingo"]
+stubPath = "labelingo/stubs"
+typeCheckingMode = "basic"
+
+[tool.hatch.envs.default]
+dependencies = [
+    "labelingo[dev]"
+]
+
+[tool.hatch.envs.default.scripts]
+lint = [
+    "ruff check .",
+    "pyright"
+]
+fmt = "ruff format ."
+typecheck = "pyright"
+
+[tool.hatch.envs.cairo]
+dependencies = [
+    "labelingo[cairo]"
+]
+
+[tool.hatch.envs.ocr]
+dependencies = [
+    "labelingo[ocr]"
+]
+
+[tool.hatch.envs.full]
+dependencies = [
+    "labelingo[dev,cairo,ocr]"
 ]
