@@ -25,8 +25,7 @@ if TYPE_CHECKING:
     import pytesseract  # type: ignore # noqa: F401
     from paddleocr import PaddleOCR  # type: ignore  # noqa: F401
 
-# Add near the top of the file with other constants
-OCR_BACKEND_VERSION = 1
+OCR_BACKEND_VERSION = 2
 
 # Lazy imports for OCR backends
 def import_ocr_backend(backend: str) -> Optional[Any]:
@@ -336,7 +335,7 @@ def analyze_with_easyocr(
 
             elements: List[UIElement] = []
             for box, text, conf in results:
-                if conf > 0.5:  # Filter low confidence detections
+                if conf > 0:  # Filter low confidence detections
                     # Convert box points to bbox format
                     x1 = min(point[0] for point in box)
                     y1 = min(point[1] for point in box)

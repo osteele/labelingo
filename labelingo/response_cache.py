@@ -69,3 +69,17 @@ class ResponseCache:
         with open(cache_file, "w") as f:
             f.write(response)
         self._cleanup_old_cache()
+
+    def clear_cache(self) -> None:
+        """Clear all cached responses"""
+        try:
+            for subdir in self.cache_dir.iterdir():
+                if subdir.is_dir():
+                    for cache_file in subdir.glob("*.json"):
+                        cache_file.unlink()
+                    subdir.rmdir()
+            if self.debug:
+                print(f"Cache cleared: {self.cache_dir}", file=sys.stderr)
+        except Exception as e:
+            if self.debug:
+                print(f"Warning: Failed to clear cache: {e}", file=sys.stderr)

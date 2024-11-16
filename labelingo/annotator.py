@@ -26,26 +26,57 @@ class SVGAnnotator:
         self.width = int(image.width * self.scale)
         self.height = int(image.height * self.scale)
 
-        # Add margins for text annotations on both sides
-        self.left_margin = 250
-        self.right_margin = 200
-        self.bottom_margin = 50  # Add margin for title below image
-        self.total_width = self.width + self.left_margin + self.right_margin
-        self.total_height = (
-            self.height + self.bottom_margin
-        )  # Add bottom margin to total height
+        # Font sizes
+        self.font_family = "'Helvetica Neue', Helvetica, Arial, sans-serif"
+        self.number_font_size = 16
+        self.text_font_size = 15
+        self.title_font_size = 20
 
-        if debug:
-            print(f"SVG dimensions: {self.total_width}x{self.total_height}")
-            print(f"Scale factor: {self.scale}")
+        # Calculate margins based on longest text
+        self.bottom_margin = 50  # Keep fixed bottom margin for title
+        self.left_margin = 0  # Will be set in annotate()
+        self.right_margin = 0  # Will be set in annotate()
 
-    def estimate_text_width(self, text: str, font_size: int = 13) -> int:
+    def estimate_text_width(self, text: str, font_size: int = 15) -> int:
         """Rough estimate of text width in pixels."""
         # This is a rough approximation - adjust multiplier as needed
-        return int(len(text) * (font_size * 0.6))
+        return int(
+            len(text) * (font_size * 0.65)
+        )  # Increased multiplier for larger font
 
     def annotate(self, elements: List[UIElement], title: str | None = None) -> str:
         """Create SVG with numbered callouts and translations"""
+        # Calculate required margins based on longest text
+        max_left_text = 0
+        max_right_text = 0
+
+        for i, element in enumerate(elements, start=1):
+            if element.translation and element.translation != element.text:
+                text = f"{i}. {element.text} — {element.translation}"
+            else:
+                text = f"{i}. {element.text}"
+            text_width = self.estimate_text_width(text, self.text_font_size)
+
+            # Determine which side based on position (will match final placement)
+            if any(coord != 0 for coord in element.bbox):
+                center_x = (element.bbox[0] + element.bbox[2]) / 2 * self.scale
+                if center_x > self.width / 2:
+                    max_right_text = max(max_right_text, text_width)
+                else:
+                    max_left_text = max(max_left_text, text_width)
+            else:
+                # For elements without bbox, alternate sides
+                if i % 2 == 0:
+                    max_right_text = max(max_right_text, text_width)
+                else:
+                    max_left_text = max(max_left_text, text_width)
+
+        # Set margins with padding
+        self.left_margin = max_left_text + 60  # Add padding for connectors
+        self.right_margin = max_right_text + 60
+        self.total_width = self.width + self.left_margin + self.right_margin
+        self.total_height = self.height + self.bottom_margin
+
         # Convert image to bytes
         buffer = io.BytesIO()
         self.image.save(buffer, format="JPEG", quality=95)
@@ -54,134 +85,167 @@ class SVGAnnotator:
 
         svg_lines = [
             f'<svg width="{self.total_width}" height="{self.total_height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">',
-            "  <style>",
-            "    .callout { fill: #FF595E; stroke: white; stroke-width: 2; opacity: 0.7; }",
-            "    .number { fill: #1982C4; font-family: 'Arial', sans-serif; font-weight: bold; font-size: 14px; }",
-            "    .translation { font-family: 'Arial', sans-serif; font-size: 13px; }",
-            "    .translation .japanese { color: #666666; font-style: italic; }",
-            "    .connector { stroke: url(#lineGradient); stroke-width: 2; fill: none; stroke-linecap: round; }",
-            "    .connector-outline { stroke: white; stroke-width: 4; fill: none; stroke-linecap: round; opacity: 0.6; }",
-            "    .box { fill: none; stroke: #FF595E; stroke-width: 1.5; opacity: 0.6; }",
-            "    .title { fill: #1982C4; font-family: 'Arial', sans-serif; font-size: 18px; font-weight: bold; }",
-            "  </style>",
-            f'  <image x="{self.left_margin}" y="0" width="{self.width}" height="{self.height}" xlink:href="data:image/jpeg;base64,{image_base64}"/>',
             "  <defs>",
             '    <linearGradient id="lineGradient">',
             '      <stop offset="0%" stop-color="#FF0000" stop-opacity="0.9"/>',
             '      <stop offset="100%" stop-color="#FF0000" stop-opacity="0.7"/>',
             "    </linearGradient>",
-            '    <text id="measure-text" class="translation" visibility="hidden"></text>',
             "  </defs>",
+            "  <style>",
+            f"    .callout {{ fill: #FF595E; stroke: white; stroke-width: 2; opacity: 0.7; }}",
+            f"    .number {{ fill: #1982C4; font-family: {self.font_family}; font-weight: bold; font-size: {self.number_font_size}px; }}",
+            f"    .translation {{ font-family: {self.font_family}; font-size: {self.text_font_size}px; }}",
+            "    .text-background { fill: white; }",
+            f"    .japanese {{ font-family: {self.font_family}; color: #666666; font-style: italic; }}",
+            "    .connector { stroke: #E85D75; stroke-width: 2; fill: none; stroke-linecap: round; opacity: 0.9; }",
+            "    .connector-outline { stroke: white; stroke-width: 4; fill: none; stroke-linecap: round; opacity: 0.6; }",
+            "    .box { fill: none; stroke: #E85D75; stroke-width: 1.5; opacity: 0.6; rx: 6px; ry: 6px; }",
+            f"    .title {{ fill: #1982C4; font-family: {self.font_family}; font-size: {self.title_font_size}px; font-weight: bold; }}",
+            f"    .bullet {{ fill: #666666; font-family: {self.font_family}; font-size: 14px; }}",
+            "  </style>",
+            f'  <image x="{self.left_margin}" y="0" width="{self.width}" height="{self.height}" xlink:href="data:image/jpeg;base64,{image_base64}"/>',
         ]
 
-        # Add connectors and callouts
-        for i, element in enumerate(elements, start=1):
+        # Sort elements by their vertical position (y coordinate)
+        def get_y_position(element: UIElement) -> float:
+            if any(coord != 0 for coord in element.bbox):
+                return element.bbox[1] * self.scale
+            return float("inf")  # Put elements without bbox at the end
+
+        sorted_elements = sorted(
+            enumerate(elements, start=1), key=lambda x: get_y_position(x[1])
+        )
+
+        # Track vertical positions for left and right sides to prevent overlap
+        left_y = 0
+        right_y = 0
+        min_y_spacing = 25  # Minimum vertical space between labels
+
+        # Process sorted elements
+        for i, element in sorted_elements:
             text = html.escape(element.text)
             translation = (
                 html.escape(element.translation) if element.translation else None
             )
-
-            # Skip drawing boxes and connectors for elements with null bounding boxes
             has_bbox = any(coord != 0 for coord in element.bbox)
 
             if has_bbox:
-                # Calculate positions, applying scale factor
-                x1 = int(element.bbox[0] * self.scale) + self.left_margin
-                y1 = int(element.bbox[1] * self.scale)
-                x2 = int(element.bbox[2] * self.scale) + self.left_margin
-                y2 = int(element.bbox[3] * self.scale)
-
-                # Calculate center points
+                # Add padding to bounding boxes
+                box_padding = 4
+                x1 = int(element.bbox[0] * self.scale) + self.left_margin - box_padding
+                y1 = int(element.bbox[1] * self.scale) - box_padding
+                x2 = int(element.bbox[2] * self.scale) + self.left_margin + box_padding
+                y2 = int(element.bbox[3] * self.scale) + box_padding
                 center_x = (x1 + x2) // 2
                 center_y = (y1 + y2) // 2
 
-                # Determine whether to place label on left or right
+                # Determine label side based on box position
                 on_right = center_x > (self.left_margin + self.width / 2)
 
-                # Connect to left or right edge of box depending on label position
+                # Calculate vertical position for label, avoiding overlap
                 if on_right:
-                    connect_x = (
-                        x2  # Connect to right edge of box for labels on the right
-                    )
+                    text_y = max(center_y, right_y + min_y_spacing)
+                    right_y = text_y
                 else:
-                    connect_x = x1  # Connect to left edge of box for labels on the left
+                    text_y = max(center_y, left_y + min_y_spacing)
+                    left_y = text_y
 
-                # Text position based on side
+                # Calculate connector points
                 if on_right:
-                    text_x = self.left_margin + self.width + 10
-                    start_x = text_x
-                    ctrl1_x = text_x - 30
+                    connect_x = x2  # right edge
+                    text_x = self.left_margin + self.width + 40
+                    start_x = text_x - 20
                 else:
+                    connect_x = x1  # left edge
                     text_x = 10
-                    # Calculate label width
-                    if element.translation and element.translation != element.text:
-                        label_text = f"{i}. {text} — {element.translation}"
-                    else:
-                        label_text = f"{i}. {text}"
-                    text_width = self.estimate_text_width(label_text)
-                    start_x = text_x + text_width
-                    ctrl1_x = start_x + 30
+                    # Don't extend connector past the text
+                    start_x = text_x  # Changed from extending leftward
 
-                text_y = min(self.height - 20, 25 * i)
-
-                # Adjust control points based on side
-                if on_right:
-                    ctrl2_x = (ctrl1_x + connect_x) / 2
-                else:
-                    ctrl2_x = (ctrl1_x + connect_x) / 2
-
+                # Draw connectors...
+                ctrl1_x = start_x + (30 if not on_right else -30)
+                ctrl2_x = (ctrl1_x + connect_x) / 2
                 ctrl1_y = text_y
                 ctrl2_y = (text_y + center_y) / 2
 
+                # Add connector paths and box...
                 svg_lines.append(
-                    f'  <path class="connector-outline" d="M {start_x} {text_y} '
-                    f"C {ctrl1_x} {ctrl1_y}, "
-                    f"{ctrl2_x} {ctrl2_y}, "
-                    f'{connect_x} {center_y}"/>'
+                    f'  <path class="connector-outline" d="M {start_x} {text_y} C {ctrl1_x} {ctrl1_y}, {ctrl2_x} {ctrl2_y}, {connect_x} {center_y}"/>'
                 )
                 svg_lines.append(
-                    f'  <path class="connector" d="M {start_x} {text_y} '
-                    f"C {ctrl1_x} {ctrl1_y}, "
-                    f"{ctrl2_x} {ctrl2_y}, "
-                    f'{connect_x} {center_y}"/>'
+                    f'  <path class="connector" d="M {start_x} {text_y} C {ctrl1_x} {ctrl1_y}, {ctrl2_x} {ctrl2_y}, {connect_x} {center_y}"/>'
+                )
+                svg_lines.append(
+                    f'  <rect class="box" x="{x1}" y="{y1}" width="{x2-x1}" height="{y2-y1}"/>'
                 )
 
-                svg_lines.append(
-                    f'  <rect class="box" x="{x1}" y="{y1}" '
-                    f'width="{x2-x1}" height="{y2-y1}"/>'
-                )
+                # Format text with number
+                if element.translation and element.translation != element.text:
+                    display_text = (
+                        f'<tspan class="number">{i}.</tspan> '
+                        f'<tspan class="japanese">{text}</tspan> '
+                        f'<tspan class="separator"> — </tspan> '
+                        f'<tspan class="english">{element.translation}</tspan>'
+                    )
+                else:
+                    display_text = f'<tspan class="number">{i}.</tspan> {text}'
             else:
-                # For elements without bbox, alternate between left and right
+                # Handle elements without bounding boxes
                 on_right = i % 2 == 0
-                text_x = (self.left_margin + self.width + 10) if on_right else 10
-                text_y = min(self.height - 20, 25 * i)
+                if on_right:
+                    text_y = max(self.height - 150 + (i * 25), right_y + min_y_spacing)
+                    right_y = text_y
+                    text_x = self.left_margin + self.width + 40
+                else:
+                    text_y = max(self.height - 150 + (i * 25), left_y + min_y_spacing)
+                    left_y = text_y
+                    text_x = 10
 
-            # Update text display format
+                # Use bullet point (•) instead of number for items without bbox
+                if element.translation and element.translation != element.text:
+                    display_text = (
+                        f'<tspan class="bullet">•</tspan> '
+                        f'<tspan class="japanese">{text}</tspan> '
+                        f'<tspan class="separator"> — </tspan> '
+                        f'<tspan class="english">{element.translation}</tspan>'
+                    )
+                else:
+                    display_text = f'<tspan class="bullet">•</tspan> {text}'
+
+            # Add the text label with background
+            text_height = 20  # Approximate height of text
+            text_padding = 5  # Padding around text
             if element.translation and element.translation != element.text:
-                display_text = (
-                    f'<tspan class="number">{i}.</tspan> '
-                    f'<tspan class="japanese">{text}</tspan> '
-                    f'<tspan class="separator"> — </tspan> '
-                    f'<tspan class="english">{element.translation}</tspan>'
-                )
+                label_text = f"{i}. {text} — {element.translation}"
             else:
-                display_text = f"{i}. {text}"
+                label_text = f"{i}. {text}"
+            text_width = self.estimate_text_width(label_text)
 
+            # Draw background rectangle first
+            svg_lines.append(
+                f'  <rect class="text-background" x="{text_x - text_padding}" '
+                f'y="{text_y - text_height + text_padding}" '
+                f'width="{text_width + 2*text_padding}" '
+                f'height="{text_height + text_padding}" />'
+            )
+
+            # Then draw the text
             svg_lines.append(
                 f'  <text class="translation" x="{text_x}" y="{text_y}">'
                 f'{display_text}</text>'
             )
 
+        # Add title if provided...
+
         # Add title below the image if provided
         if title:
             title_y = self.height + 30  # Position title 30px below the image
             title_x = self.left_margin + (self.width / 2)  # Center title horizontally
-            title_element = f"""
-                <text class="title" x="{title_x}" y="{title_y}" text-anchor="middle">
-                    {html.escape(title)}
-                </text>
-            """
-            svg_lines.append(title_element)
+            svg_lines.append(
+                f'  <text class="title" x="{title_x}" y="{title_y}" text-anchor="middle">'
+                f"{html.escape(title)}</text>"
+            )
 
+        # Close the SVG tag
         svg_lines.append('</svg>')
+
         return '\n'.join(svg_lines)
