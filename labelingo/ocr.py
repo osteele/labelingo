@@ -3,9 +3,7 @@ import hashlib
 import json
 import os
 import re
-from dataclasses import dataclass
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional
 
 import click
 from anthropic import (
@@ -19,36 +17,13 @@ from PIL import Image
 
 from .openai_analysis import get_openai_analysis
 from .response_cache import ResponseCache
-from .utils import get_rotated_image_data, preprocess_image
+from .types import AnalysisResult, AnalysisSettings, UIElement
 
 # Type checking imports
 if TYPE_CHECKING:
     import easyocr  # type: ignore # noqa: F401
     import pytesseract  # type: ignore # noqa: F401
     from paddleocr import PaddleOCR  # type: ignore  # noqa: F401
-
-# Define the valid backend types
-BackendType = Literal["claude", "tesseract", "easyocr", "paddleocr"]
-
-@dataclass
-class AnalysisSettings:
-    image_path: Path
-    target_lang: str
-    backend: BackendType = "claude"
-    no_cache: bool = False
-    debug: bool = False
-
-@dataclass
-class UIElement:
-    text: str
-    translation: str
-    bbox: Tuple[int, int, int, int]  # x1, y1, x2, y2
-
-@dataclass
-class AnalysisResult:
-    image_dimensions: Tuple[int, int]  # width, height
-    elements: List[UIElement]
-    source_language: Optional[str] = None  # Add source language field
 
 
 # Lazy imports for OCR backends
@@ -98,7 +73,7 @@ def get_analysis_prompt(target_lang: str) -> str:
     1. Identify its location using pixel coordinates (x1,y1,x2,y2 coordinates)
     2. Extract the original text
     3. Provide a translation to {target_lang} if the text is not already in
-       {target_lang}
+        {target_lang}
 
     Return the results in this exact JSON format:
     {{
@@ -122,20 +97,19 @@ def get_analysis_prompt(target_lang: str) -> str:
     """
 
 
-def analyze_ui(settings: AnalysisSettings) -> AnalysisResult:
+def analyze_ui(image: Image.Image, settings: AnalysisSettings) -> AnalysisResult:
     """Analyze UI screenshot using specified backend and OpenAI for translations"""
 
     # First get OpenAI analysis for translations
-    openai_analysis = get_openai_analysis(settings.image_path, settings.target_lang)
-    source_language = openai_analysis.get("source_language", "en")  # Default to English
+    openai_analysis = get_openai_analysis(image, settings)
+    source_language = openai_analysis["source_language"]
     openai_translations = {
-        elem["text"]: elem["translation"]
-        for elem in openai_analysis.get("elements", [])
+        elem["text"]: elem["translation"] for elem in openai_analysis["elements"]
     }
 
     # Get OCR results from selected backend
     if settings.backend == "claude":
-        result = analyze_with_claude(settings)
+        result = analyze_with_claude(image, settings)
     else:
         backend_fn = {
             "tesseract": analyze_with_tesseract,
@@ -143,9 +117,11 @@ def analyze_ui(settings: AnalysisSettings) -> AnalysisResult:
             "paddleocr": analyze_with_paddleocr,
         }[settings.backend]
 
-        elements = backend_fn(settings.image_path, source_language)
+        if settings.debug:
+            print(f"Analyzing with {settings.backend} backend...")
+        elements = backend_fn(image, source_language)
         result = AnalysisResult(
-            image_dimensions=Image.open(settings.image_path).size,
+            image_dimensions=image.size,
             elements=elements,
             source_language=source_language,
         )
@@ -157,7 +133,8 @@ def analyze_ui(settings: AnalysisSettings) -> AnalysisResult:
 
     return result
 
-def analyze_with_tesseract(image_path: Path, lang_code: str) -> List[UIElement]:
+
+def analyze_with_tesseract(image: Image.Image, lang_code: str) -> List[UIElement]:
     """Analyze using Tesseract with support for multiple languages"""
     pytesseract = import_ocr_backend("tesseract")
     if pytesseract is None:
@@ -179,12 +156,8 @@ def analyze_with_tesseract(image_path: Path, lang_code: str) -> List[UIElement]:
 
     try:
         # Open and convert image to RGB mode
-        image = Image.open(image_path)
         if image.mode != "RGB":
             image = image.convert("RGB")
-
-        # Handle EXIF rotation using the safer preprocess_image function
-        image = preprocess_image(image_path)
 
         # Configure Tesseract
         custom_config = f"--psm 3 --oem 3 -l {tesseract_lang}"
@@ -281,7 +254,7 @@ def analyze_with_tesseract(image_path: Path, lang_code: str) -> List[UIElement]:
 
 
 def analyze_with_easyocr(
-    image_path: Path, lang_code: str, debug: bool = False
+    image: Image.Image, lang_code: str, debug: bool = False
 ) -> List[UIElement]:
     """Analyze using EasyOCR with support for multiple languages"""
     easyocr = import_ocr_backend("easyocr")
@@ -306,9 +279,6 @@ def analyze_with_easyocr(
         reader = getattr(easyocr, "Reader")([lang_code])
         if reader is None:
             raise click.ClickException("Failed to create EasyOCR reader")
-
-        # Open and preprocess image using the safer preprocess_image function
-        image = preprocess_image(image_path)
 
         # Save preprocessed image to a temporary file
         import sys
@@ -360,7 +330,7 @@ def analyze_with_easyocr(
         raise click.ClickException(f"EasyOCR error: {str(e)}")
 
 
-def analyze_with_paddleocr(image_path: Path, lang: str) -> List[UIElement]:
+def analyze_with_paddleocr(image: Image.Image, lang: str) -> List[UIElement]:
     """Analyze using PaddleOCR with support for multiple languages"""
     PaddleOCR = import_ocr_backend("paddleocr")
     if PaddleOCR is None:
@@ -371,7 +341,7 @@ def analyze_with_paddleocr(image_path: Path, lang: str) -> List[UIElement]:
         if ocr is None:
             raise click.ClickException("Failed to create PaddleOCR instance")
 
-        results = ocr.ocr(str(image_path))
+        results = ocr.ocr(image)
         if results is None:
             raise click.ClickException("PaddleOCR returned no results")
 
@@ -415,6 +385,7 @@ def analyze_with_paddleocr(image_path: Path, lang: str) -> List[UIElement]:
 
 
 def analyze_with_claude(
+    image: Image.Image,
     settings: AnalysisSettings,
 ) -> AnalysisResult:
     """Analyze UI screenshot using Claude Vision"""
@@ -431,12 +402,9 @@ def analyze_with_claude(
 
     if settings.debug:
         print("Reading and processing image...")
-    image_data, (actual_width, actual_height) = get_rotated_image_data(
-        settings.image_path
-    )
 
     # Calculate image hash
-    image_hash = hashlib.sha256(image_data).hexdigest()
+    image_hash = hashlib.sha256(image.tobytes()).hexdigest()
 
     prompt = get_analysis_prompt(settings.target_lang)
     # Combine image and prompt hashes
@@ -452,7 +420,7 @@ def analyze_with_claude(
             print("Using cached analysis...")
         response_text = cached_response
     else:
-        image_base64 = base64.b64encode(image_data).decode("utf-8")
+        image_base64 = base64.b64encode(image.tobytes()).decode("utf-8")
 
         try:
             print("Analyzing image with Claude AI...", end="", flush=True)
@@ -530,10 +498,10 @@ def analyze_with_claude(
 
         if settings.debug:
             print(f"Claude dimensions: {claude_width}x{claude_height}")
-            print(f"Actual dimensions: {actual_width}x{actual_height}")
+            print(f"Actual dimensions: {image.width}x{image.height}")
 
-        width_scale = actual_width / claude_width
-        height_scale = actual_height / claude_height
+        width_scale = image.width / claude_width
+        height_scale = image.height / claude_height
 
         if settings.debug:
             print(f"Scale factors: width={width_scale}, height={height_scale}")
@@ -559,7 +527,7 @@ def analyze_with_claude(
         if settings.debug:
             print(f"Found {len(data['elements'])} text elements")
         return AnalysisResult(
-            image_dimensions=(actual_width, actual_height), elements=elements
+            image_dimensions=(image.width, image.height), elements=elements
         )
 
     except Exception as e:

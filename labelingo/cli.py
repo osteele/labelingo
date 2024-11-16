@@ -1,3 +1,4 @@
+import io
 import locale
 import sys
 import webbrowser
@@ -8,8 +9,9 @@ import click
 from PIL import Image
 
 from .annotator import SVGAnnotator
-from .ocr import AnalysisSettings, BackendType, analyze_ui
-from .utils import open_file
+from .ocr import AnalysisSettings, analyze_ui
+from .types import BackendType
+from .utils import get_rotated_image_data, open_file
 
 
 @click.command()
@@ -44,6 +46,13 @@ def main(
     """Annotate images with translations."""
     input_path = Path(image_path)
 
+    # Load and rotate image based on EXIF
+    try:
+        image_data, _ = get_rotated_image_data(input_path)
+        image = Image.open(io.BytesIO(image_data))
+    except Exception as e:
+        raise click.ClickException(f"Failed to load image: {str(e)}")
+
     # Default output path: replace extension with -annotated.svg
     if not output:
         output = str(
@@ -55,12 +64,9 @@ def main(
         locale_info = locale.getlocale()[0]
         language = locale_info.split("_")[0] if locale_info else "en"
 
-    # Cast the backend string to BackendType since we know it's valid from
-    # Click's Choice
     backend_type = cast(BackendType, backend.lower())
 
     settings = AnalysisSettings(
-        image_path=Path(input_path),
         target_lang=language,
         backend=backend_type,
         no_cache=no_cache,
@@ -68,16 +74,12 @@ def main(
     )
 
     # Create annotator with debug flag
-    image = Image.open(input_path)
-    annotator = SVGAnnotator(input_path, image.width, image.height, debug=debug)
+    annotator = SVGAnnotator(image, input_path, debug=debug)
 
     # Process image and create SVG
-    analysis = analyze_ui(settings)
+    analysis = analyze_ui(image, settings)
 
-    if debug and analysis.source_language:
-        print(f"Detected source language: {analysis.source_language}")
-
-    svg_content = annotator.annotate(analysis.elements, Path(output))
+    svg_content = annotator.annotate(analysis.elements)
 
     # Write SVG file
     with open(output, "w") as f:

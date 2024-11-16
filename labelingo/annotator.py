@@ -1,22 +1,32 @@
 import base64
 import html
+import io
 from pathlib import Path
 from typing import List
 
+from PIL import Image
+
 from .ocr import UIElement
-from .utils import get_rotated_image_data
 
 
 class SVGAnnotator:
-    def __init__(self, image_path: Path, width: int, height: int, max_width: int = 1200, debug: bool = False):
+
+    def __init__(
+        self,
+        image: Image.Image,
+        image_path: Path,
+        max_width: int = 1200,
+        debug: bool = False,
+    ):
         """Initialize SVG annotator with image dimensions and optional max width."""
+        self.image = image
         self.image_path = image_path
         self.debug = debug
 
         # Calculate scale to fit within max_width while maintaining aspect ratio
-        self.scale = min(1.0, max_width / width)
-        self.width = int(width * self.scale)
-        self.height = int(height * self.scale)
+        self.scale = min(1.0, max_width / image.width)
+        self.width = int(image.width * self.scale)
+        self.height = int(image.height * self.scale)
 
         # Add margin for text annotations on the left
         self.margin = 300  # Space for text on the left
@@ -26,10 +36,12 @@ class SVGAnnotator:
             print(f"SVG dimensions: {self.total_width}x{self.height}")
             print(f"Scale factor: {self.scale}")
 
-    def annotate(self, elements: List[UIElement], output_path: Path) -> str:
+    def annotate(self, elements: List[UIElement]) -> str:
         """Create SVG with numbered callouts and translations"""
-        # Get rotated image data and encode as base64
-        image_data, _ = get_rotated_image_data(self.image_path)
+        # Convert image to bytes
+        buffer = io.BytesIO()
+        self.image.save(buffer, format="JPEG", quality=95)
+        image_data = buffer.getvalue()
         image_base64 = base64.b64encode(image_data).decode('utf-8')
 
         svg_lines = [
