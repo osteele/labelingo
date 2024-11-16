@@ -157,10 +157,22 @@ def analyze_ui(image: Image.Image, settings: AnalysisSettings) -> AnalysisResult
             source_language=source_language,
         )
 
-    # Update translations from OpenAI results
+    # Update existing elements with translations
     for element in result.elements:
-        if not element.translation and element.text in openai_translations:
-            element.translation = openai_translations[element.text]
+        if not element.translation or element.translation == element.text:
+            element.translation = openai_translations.get(element.text, None)
+
+    # Add elements for translations that don't have corresponding OCR results
+    ocr_texts = {element.text for element in result.elements}
+    for text, translation in openai_translations.items():
+        if text not in ocr_texts:
+            result.elements.append(
+                UIElement(
+                    text=text,
+                    translation=translation,
+                    bbox=(0, 0, 0, 0),  # Null bounding box
+                )
+            )
 
     return result
 

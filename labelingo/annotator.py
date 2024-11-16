@@ -61,45 +61,52 @@ class SVGAnnotator:
                 html.escape(element.translation) if element.translation else None
             )
 
-            # Calculate positions, applying scale factor
-            x1 = int(element.bbox[0] * self.scale) + self.margin
-            y1 = int(element.bbox[1] * self.scale)
-            x2 = int(element.bbox[2] * self.scale) + self.margin
-            y2 = int(element.bbox[3] * self.scale)
-            center_x = (x1 + x2) // 2
-            center_y = (y1 + y2) // 2
+            # Skip drawing boxes and connectors for elements with null bounding boxes
+            has_bbox = any(coord != 0 for coord in element.bbox)
 
-            # Text position in left margin
-            text_x = 10
-            text_y = min(self.height - 20, 25 * i)  # Keep text within SVG height
+            if has_bbox:
+                # Calculate positions, applying scale factor
+                x1 = int(element.bbox[0] * self.scale) + self.margin
+                y1 = int(element.bbox[1] * self.scale)
+                x2 = int(element.bbox[2] * self.scale) + self.margin
+                y2 = int(element.bbox[3] * self.scale)
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
 
-            # Add connector line from text to element
-            # Control points for the curve
-            start_x = text_x + 150  # Start point closer to text
-            ctrl1_x = text_x + 180  # First control point
-            ctrl2_x = (ctrl1_x + center_x) / 2  # Second control point
+                # Text position in left margin
+                text_x = 10
+                text_y = min(self.height - 20, 25 * i)
 
-            # Adjust vertical positions for control points
-            ctrl1_y = text_y  # Keep first control point at text level
-            ctrl2_y = (text_y + center_y) / 2  # Midpoint for smooth curve
+                # Add connector line from text to element
+                start_x = text_x + 150
+                ctrl1_x = text_x + 180
+                ctrl2_x = (ctrl1_x + center_x) / 2
+                ctrl1_y = text_y
+                ctrl2_y = (text_y + center_y) / 2
 
-            svg_lines.append(
-                f'  <path class="connector" d="M {start_x} {text_y} '
-                f'C {ctrl1_x} {ctrl1_y}, '
-                f'{ctrl2_x} {ctrl2_y}, '
-                f'{center_x} {center_y}"/>'
-            )
+                svg_lines.append(
+                    f'  <path class="connector" d="M {start_x} {text_y} '
+                    f"C {ctrl1_x} {ctrl1_y}, "
+                    f"{ctrl2_x} {ctrl2_y}, "
+                    f'{center_x} {center_y}"/>'
+                )
 
-            # Add bounding box around text in UI
-            svg_lines.append(
-                f'  <rect class="box" x="{x1}" y="{y1}" '
-                f'width="{x2-x1}" height="{y2-y1}"/>'
-            )
+                # Add bounding box around text in UI
+                svg_lines.append(
+                    f'  <rect class="box" x="{x1}" y="{y1}" '
+                    f'width="{x2-x1}" height="{y2-y1}"/>'
+                )
+
+            # Text position for elements without bounding boxes
+            if not has_bbox:
+                text_x = 10
+                text_y = min(self.height - 20, 25 * i)
 
             # Update text display format
-            display_text = f"{i}. {text}"
-            if translation:
-                display_text += f" → {translation}"
+            if element.translation and element.translation != element.text:
+                display_text = f"{i}. {text} → {element.translation}"
+            else:
+                display_text = f"{i}. {text}"
 
             svg_lines.append(
                 f'  <text class="translation" x="{text_x}" y="{text_y}">'
