@@ -26,9 +26,10 @@ class SVGAnnotator:
         self.width = int(image.width * self.scale)
         self.height = int(image.height * self.scale)
 
-        # Add margin for text annotations on the left
-        self.margin = 300  # Space for text on the left
-        self.total_width = self.width + self.margin
+        # Add margins for text annotations on both sides
+        self.left_margin = 250  # Increased from 200
+        self.right_margin = 200
+        self.total_width = self.width + self.left_margin + self.right_margin
 
         if debug:
             print(f"SVG dimensions: {self.total_width}x{self.height}")
@@ -43,15 +44,15 @@ class SVGAnnotator:
         image_base64 = base64.b64encode(image_data).decode('utf-8')
 
         svg_lines = [
-            f'<svg width="{self.total_width}" height="{self.height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">',  # noqa: E501
+            f'<svg width="{self.total_width}" height="{self.height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">',
             "  <style>",
-            "    .callout { fill: red; stroke: white; stroke-width: 2; opacity: 0.8; }",  # noqa: E501
-            "    .number { fill: white; font-family: Arial; font-size: 16px; }",  # noqa: E501
-            "    .translation { fill: black; font-family: Arial; font-size: 14px; }",  # noqa: E501
-            "    .connector { stroke: red; stroke-width: 1.5; opacity: 0.6; fill: none; }",  # noqa: E501
-            "    .box { fill: none; stroke: red; stroke-width: 2; opacity: 0.8; }",  # noqa: E501
+            "    .callout { fill: red; stroke: white; stroke-width: 2; opacity: 0.8; }",
+            "    .number { fill: white; font-family: Arial; font-size: 16px; }",
+            "    .translation { fill: black; font-family: Arial; font-size: 14px; }",
+            "    .connector { stroke: red; stroke-width: 1.5; opacity: 0.6; fill: none; }",
+            "    .box { fill: none; stroke: red; stroke-width: 2; opacity: 0.8; }",
             "  </style>",
-            f'  <image x="{self.margin}" y="0" width="{self.width}" height="{self.height}" xlink:href="data:image/jpeg;base64,{image_base64}"/>',  # noqa: E501
+            f'  <image x="{self.left_margin}" y="0" width="{self.width}" height="{self.height}" xlink:href="data:image/jpeg;base64,{image_base64}"/>',
         ]
 
         # Add connectors and callouts
@@ -66,21 +67,35 @@ class SVGAnnotator:
 
             if has_bbox:
                 # Calculate positions, applying scale factor
-                x1 = int(element.bbox[0] * self.scale) + self.margin
+                x1 = int(element.bbox[0] * self.scale) + self.left_margin
                 y1 = int(element.bbox[1] * self.scale)
-                x2 = int(element.bbox[2] * self.scale) + self.margin
+                x2 = int(element.bbox[2] * self.scale) + self.left_margin
                 y2 = int(element.bbox[3] * self.scale)
                 center_x = (x1 + x2) // 2
                 center_y = (y1 + y2) // 2
 
-                # Text position in left margin
-                text_x = 10
+                # Determine whether to place label on left or right
+                # Place on right if element is in the right half of the image
+                on_right = center_x > (self.left_margin + self.width / 2)
+
+                # Text position based on side
+                if on_right:
+                    text_x = self.left_margin + self.width + 10
+                    start_x = text_x
+                    ctrl1_x = text_x - 30
+                else:
+                    text_x = 10
+                    start_x = text_x + 150
+                    ctrl1_x = text_x + 180
+
                 text_y = min(self.height - 20, 25 * i)
 
-                # Add connector line from text to element
-                start_x = text_x + 150
-                ctrl1_x = text_x + 180
-                ctrl2_x = (ctrl1_x + center_x) / 2
+                # Adjust control points based on side
+                if on_right:
+                    ctrl2_x = (center_x + ctrl1_x) / 2
+                else:
+                    ctrl2_x = (ctrl1_x + center_x) / 2
+
                 ctrl1_y = text_y
                 ctrl2_y = (text_y + center_y) / 2
 
@@ -91,15 +106,14 @@ class SVGAnnotator:
                     f'{center_x} {center_y}"/>'
                 )
 
-                # Add bounding box around text in UI
                 svg_lines.append(
                     f'  <rect class="box" x="{x1}" y="{y1}" '
                     f'width="{x2-x1}" height="{y2-y1}"/>'
                 )
-
-            # Text position for elements without bounding boxes
-            if not has_bbox:
-                text_x = 10
+            else:
+                # For elements without bbox, alternate between left and right
+                on_right = i % 2 == 0
+                text_x = (self.left_margin + self.width + 10) if on_right else 10
                 text_y = min(self.height - 20, 25 * i)
 
             # Update text display format

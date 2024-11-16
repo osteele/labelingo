@@ -164,6 +164,42 @@ sequenceDiagram
 - Clear error messages for API issues
 - Debug mode for troubleshooting
 
+### Label Placement Strategy
+
+The SVG annotator uses intelligent label placement to improve readability and utilize space efficiently:
+
+1. **Spatial Distribution**
+   - Labels are distributed between left and right margins
+   - Left margin: 200px
+   - Right margin: 200px
+   - Image centered between margins
+
+2. **Placement Heuristics**
+   - For elements with bounding boxes:
+     - Elements in the left half of the image → labels on left
+     - Elements in the right half of the image → labels on right
+   - For elements without bounding boxes:
+     - Alternates between left and right sides
+     - Helps maintain visual balance
+
+3. **Connector Lines**
+   - Curved Bézier paths connect labels to elements
+   - Control points adjusted based on label side:
+     - Left labels: curve extends right then to element
+     - Right labels: curve extends left then to element
+   - Opacity and width optimized for readability
+
+4. **Vertical Spacing**
+   - Labels spaced 25px apart vertically
+   - Maximum y-position capped at image height - 20px
+   - Prevents labels from extending beyond image bounds
+
+This approach provides several benefits:
+- Better space utilization
+- Reduced line crossing
+- Improved readability for dense annotations
+- More natural visual flow from labels to elements
+
 ## Future Improvements
 
 1. **Parallel Processing**
