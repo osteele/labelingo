@@ -21,6 +21,7 @@ class UITextElement(BaseModel):
 
 
 class UIAnalysis(BaseModel):
+    title: str
     source_languages: List[str]
     elements: List[UITextElement]
 
@@ -62,7 +63,7 @@ def get_openai_analysis(
                 },
                 {
                     "type": "text",
-                    "text": f"Analyze this UI screenshot. Identify the source languages as two-letter codes (e.g. 'en', 'zh', ja', etc.) and extract all UI text elements (labels, buttons, etc.). Provide translations to {target_lang}.",  # noqa: E501
+                    "text": f"Analyze this UI screenshot. Provide a brief descriptive title for the image. Identify the source languages as two-letter codes (e.g. 'en', 'zh', ja', etc.) and extract all UI text elements (labels, buttons, etc.). Provide translations to {target_lang}.",  # noqa: E501
                 },
             ],
         }
@@ -99,10 +100,12 @@ def get_openai_analysis(
     source_languages = result_dict.get("source_languages", [])
     if settings.debug:
         print(f"Detected source languages: {source_languages}")
+        print(f"Title: {result_dict.get('title', '')}")
     if len(source_languages) > 1:
         source_languages = [ln.strip() for ln in source_languages if ln != target_lang]
 
     return dict(
+        title=result_dict.get("title", None),
         source_language=source_languages[0],
         elements=result_dict.get("elements", []),
     )

@@ -152,7 +152,7 @@ def analyze_ui(image: Image.Image, settings: AnalysisSettings) -> AnalysisResult
             cache.set("ocr", cache_key, json.dumps(elements_data))
 
         result = AnalysisResult(
-            image_dimensions=image.size,
+            title=openai_analysis.get("title", None),
             elements=elements,
             source_language=source_language,
         )
@@ -569,9 +569,7 @@ def analyze_with_claude(
 
         if settings.debug:
             print(f"Found {len(data['elements'])} text elements")
-        return AnalysisResult(
-            image_dimensions=(image.width, image.height), elements=elements
-        )
+        return AnalysisResult(elements=elements)
 
     except Exception as e:
         raise click.ClickException(f"Error processing response: {str(e)}")

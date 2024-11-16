@@ -94,7 +94,7 @@ def main(
     analysis = analyze_ui(image, settings)
 
     # Generate SVG
-    svg_content = annotator.annotate(analysis.elements)
+    svg_content = annotator.annotate(analysis.elements, analysis.title)
 
     # Save in requested format
     if output_format == "svg":

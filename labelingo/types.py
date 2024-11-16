@@ -24,6 +24,6 @@ class UIElement:
 
 @dataclass
 class AnalysisResult:
-    image_dimensions: Tuple[int, int]  # width, height
     elements: List[UIElement]
-    source_language: Optional[str] = None  # Add source language field
+    source_language: Optional[str] = None
+    title: str | None = None

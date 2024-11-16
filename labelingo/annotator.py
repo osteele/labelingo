@@ -27,15 +27,19 @@ class SVGAnnotator:
         self.height = int(image.height * self.scale)
 
         # Add margins for text annotations on both sides
-        self.left_margin = 250  # Increased from 200
+        self.left_margin = 250
         self.right_margin = 200
+        self.bottom_margin = 50  # Add margin for title below image
         self.total_width = self.width + self.left_margin + self.right_margin
+        self.total_height = (
+            self.height + self.bottom_margin
+        )  # Add bottom margin to total height
 
         if debug:
-            print(f"SVG dimensions: {self.total_width}x{self.height}")
+            print(f"SVG dimensions: {self.total_width}x{self.total_height}")
             print(f"Scale factor: {self.scale}")
 
-    def annotate(self, elements: List[UIElement]) -> str:
+    def annotate(self, elements: List[UIElement], title: str | None = None) -> str:
         """Create SVG with numbered callouts and translations"""
         # Convert image to bytes
         buffer = io.BytesIO()
@@ -44,13 +48,14 @@ class SVGAnnotator:
         image_base64 = base64.b64encode(image_data).decode('utf-8')
 
         svg_lines = [
-            f'<svg width="{self.total_width}" height="{self.height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">',
+            f'<svg width="{self.total_width}" height="{self.total_height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">',
             "  <style>",
             "    .callout { fill: red; stroke: white; stroke-width: 2; opacity: 0.8; }",
             "    .number { fill: white; font-family: Arial; font-size: 16px; }",
             "    .translation { fill: black; font-family: Arial; font-size: 14px; }",
             "    .connector { stroke: red; stroke-width: 1.5; opacity: 0.6; fill: none; }",
             "    .box { fill: none; stroke: red; stroke-width: 2; opacity: 0.8; }",
+            "    .title { fill: black; font-family: Arial; font-size: 16px; font-weight: bold; }",
             "  </style>",
             f'  <image x="{self.left_margin}" y="0" width="{self.width}" height="{self.height}" xlink:href="data:image/jpeg;base64,{image_base64}"/>',
         ]
@@ -126,6 +131,17 @@ class SVGAnnotator:
                 f'  <text class="translation" x="{text_x}" y="{text_y}">'
                 f'{display_text}</text>'
             )
+
+        # Add title below the image if provided
+        if title:
+            title_y = self.height + 30  # Position title 30px below the image
+            title_x = self.left_margin + (self.width / 2)  # Center title horizontally
+            title_element = f"""
+                <text class="title" x="{title_x}" y="{title_y}" text-anchor="middle">
+                    {html.escape(title)}
+                </text>
+            """
+            svg_lines.append(title_element)
 
         svg_lines.append('</svg>')
         return '\n'.join(svg_lines)
