@@ -82,51 +82,23 @@ Supports multiple backends for text detection:
 ## Data Flow
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant CLI
-    participant OpenAI
-    participant OCR
-    participant Cache
-    participant SVG
-    participant Browser
-
-    User->>CLI: Image & Target Language
-
-    CLI->>OpenAI: Scale & Send Image
-
-    alt Cache Hit
-        OpenAI->>Cache: Check Cache
-        Cache-->>OpenAI: Return Cached Result
-    else Cache Miss
-        OpenAI->>OpenAI: Analyze Text & Translate
-        OpenAI->>Cache: Store Result
-    end
-
-    OpenAI-->>CLI: Text & Translations
-
-    CLI->>OCR: Send Image
-
-    alt Cache Hit
-        OCR->>Cache: Check Cache
-        Cache-->>OCR: Return Cached Result
-    else Cache Miss
-        OCR->>OCR: Detect Text Locations
-        OCR->>Cache: Store Result
-    end
-
-    OCR-->>CLI: Text Locations
-
-    CLI->>CLI: Merge Results
-
-    CLI->>SVG: Generate Annotation
-    SVG-->>CLI: SVG Content
-
-    alt Preview Requested
-        CLI->>Browser: Open SVG
-    end
-
-    CLI-->>User: Output File
+graph LR
+    U[User] --> |Image & Target Lang| CLI
+    CLI --> |Scale & Send| OpenAI
+    OpenAI --> |Check| Cache
+    Cache --> |Hit| OpenAI
+    OpenAI --> |Miss| Analysis
+    Analysis --> Cache
+    CLI --> OCR
+    OCR --> |Check| Cache
+    Cache --> |Hit| OCR
+    OCR --> |Miss| Detection
+    Detection --> Cache
+    OpenAI --> |Results| Merger
+    OCR --> |Results| Merger
+    Merger --> SVG[SVG Generator]
+    SVG --> |Preview| Browser
+    SVG --> |Save| File
 ```
 
 1. User provides screenshot and target language
@@ -168,37 +140,51 @@ sequenceDiagram
 
 The SVG annotator uses intelligent label placement to improve readability and utilize space efficiently:
 
-1. **Spatial Distribution**
-   - Labels are distributed between left and right margins
-   - Left margin: 200px
-   - Right margin: 200px
+1. **Margin Calculation**
+   - Margins are calculated dynamically based on label content
+   - Left margin: width of longest left-side label + 60px padding
+   - Right margin: width of longest right-side label + 60px padding
    - Image centered between margins
 
-2. **Placement Heuristics**
+2. **Label Distribution**
    - For elements with bounding boxes:
-     - Elements in the left half of the image → labels on left
-     - Elements in the right half of the image → labels on right
+     - Elements in left half → labels on left
+     - Elements in right half → labels on right
    - For elements without bounding boxes:
      - Alternates between left and right sides
-     - Helps maintain visual balance
+     - Placed at bottom of respective sides
+     - Uses bullet points (•) instead of numbers
 
-3. **Connector Lines**
-   - Curved Bézier paths connect labels to elements
-   - Control points adjusted based on label side:
-     - Left labels: curve extends right then to element
-     - Right labels: curve extends left then to element
-   - Opacity and width optimized for readability
+3. **Vertical Positioning**
+   - Labels are sorted by their corresponding element's y-position
+   - Minimum vertical spacing of 25px between labels
+   - Labels without bounding boxes placed at bottom
+   - Each side (left/right) tracks its last y-position to prevent overlap
 
-4. **Vertical Spacing**
-   - Labels spaced 25px apart vertically
-   - Maximum y-position capped at image height - 20px
-   - Prevents labels from extending beyond image bounds
+4. **Connector Lines**
+   - White outline (4px) with colored center line (2px)
+   - Curved Bézier paths with rounded line caps
+   - For right-side labels:
+     - Connects from 20px left of label to right edge of element box
+   - For left-side labels:
+     - Connects from start of label to left edge of element box
 
-This approach provides several benefits:
-- Better space utilization
-- Reduced line crossing
-- Improved readability for dense annotations
-- More natural visual flow from labels to elements
+5. **Visual Elements**
+   - Rounded rectangles (6px radius) around detected UI elements
+   - 4px padding around detected element bounds
+   - White background behind labels to ensure readability
+   - Text padding of 5px around labels
+   - Consistent font family (Helvetica Neue/Arial) with defined sizes:
+     - Numbers: 16px
+     - Text: 15px
+     - Title: 20px
+
+This approach provides:
+- Clean, consistent layout
+- Clear visual connection between labels and elements
+- Optimal space utilization
+- Improved readability through careful spacing and typography
+- Graceful handling of elements without detected bounds
 
 ## Future Improvements
 
@@ -243,8 +229,3 @@ The system uses environment variables for API keys:
 - `OPENAI_API_KEY`: For OpenAI Vision API
 
 These can be set in the environment or in a `.env` file.
-
-## System Flow Diagram
-
-```mermaid
-graph TD

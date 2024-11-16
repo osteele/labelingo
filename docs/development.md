@@ -1,5 +1,7 @@
 # Development Guide
 
+This guide covers setting up and contributing to Labelingo. For architectural details and design decisions, see the [Design Document](design.md).
+
 ## Setup
 
 After cloning the repository, you have two options for setting up your development environment:

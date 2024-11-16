@@ -123,6 +123,11 @@ Full options:
 labelingo --help
 ```
 
+## Documentation
+
+- [Design Document](docs/design.md) - Architecture, data flow, and design decisions
+- [Development Guide](docs/development.md) - Setup instructions and contribution guidelines
+
 ## Development
 
 See [development.md](docs/development.md) for setup instructions and development guidelines.
