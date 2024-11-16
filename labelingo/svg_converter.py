@@ -216,7 +216,7 @@ def save_with_format(
             if debug:
                 print(f"Debug: Created {format.upper()} file using Cairo")
                 print(
-                    f"Debug: Created file size: {Path(output_path).stat().st_size} bytes"
+                    f"Debug: Created file size: {Path(output_path).stat().st_size} bytes"  # noqa: E501
                 )
             return
         except Exception as e:
@@ -225,7 +225,7 @@ def save_with_format(
 
     # If all methods fail
     raise click.ClickException(
-        f"Cannot create {format.upper()} file: No conversion tools available. Please install "
+        f"Cannot create {format.upper()} file: No conversion tools available. Please install "  # noqa: E501
         "Inkscape, ImageMagick, or Cairo:\n"
         "  macOS: brew install inkscape\n"
         "  Linux: sudo apt-get install inkscape\n"

@@ -9,7 +9,7 @@ import click
 from PIL import Image
 
 from .annotator import SVGAnnotator
-from .cairo_utils import save_with_format
+from .svg_converter import save_with_format
 from .ocr import AnalysisSettings, analyze_ui
 from .types import BackendType, OutputFormat
 from .utils import get_rotated_image_data, open_file
