@@ -104,6 +104,11 @@ Use different OCR backend:
 labelingo screenshot.png --backend tesseract  # OpenAI key recommended for better translations
 ```
 
+Clear response cache:
+```bash
+labelingo --clear-cache  # Remove all cached responses
+```
+
 Specify output format:
 ```bash
 labelingo screenshot.png --format svg  # Output as SVG

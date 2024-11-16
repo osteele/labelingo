@@ -13,10 +13,11 @@ from .svg_converter import save_with_format
 from .ocr import AnalysisSettings, analyze_ui
 from .types import BackendType, OutputFormat
 from .utils import get_rotated_image_data, open_file
+from .response_cache import ResponseCache
 
 
 @click.command()
-@click.argument("image_path", type=click.Path(exists=True))
+@click.argument("image_path", type=click.Path(exists=True), required=False)
 @click.option("--output", "-o", type=click.Path(), help="Output SVG file path")
 @click.option("--language", "-l", help="Target language for translations")
 @click.option("--preview/--no-preview", default=False, help="Preview in web browser")
@@ -28,6 +29,7 @@ from .utils import get_rotated_image_data, open_file
 )
 @click.option("--debug/--no-debug", default=False, help="Show debug information")
 @click.option("--no-cache", is_flag=True, help="Skip using cached responses")
+@click.option("--clear-cache", is_flag=True, help="Clear all cached responses")
 @click.option(
     "-t",
     "--type",
@@ -42,17 +44,27 @@ from .utils import get_rotated_image_data, open_file
     help="OCR backend to use for text detection",
 )
 def main(
-    image_path: str,
+    image_path: str | None,
     output: str | None,
     language: str | None,
     preview: bool,
     open_file_flag: bool,
     debug: bool,
     no_cache: bool,
+    clear_cache: bool,
     backend: str,
     format: str | None,
 ):
     """Annotate UI screenshots with translations."""
+    if clear_cache:
+        cache = ResponseCache(debug=debug)
+        cache.clear_cache()
+        print("Cache cleared successfully")
+        return
+
+    if not image_path:
+        raise click.UsageError("Image path is required unless using --clear-cache")
+
     input_path = Path(image_path)
 
     # Load and rotate image based on EXIF
