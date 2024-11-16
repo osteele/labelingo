@@ -43,22 +43,23 @@ class SVGAnnotator:
         image_base64 = base64.b64encode(image_data).decode('utf-8')
 
         svg_lines = [
-            f'<svg width="{self.total_width}" height="{self.height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">',
-            '  <style>',
-            '    .callout { fill: red; stroke: white; stroke-width: 2; opacity: 0.8; }',
-            '    .number { fill: white; font-family: Arial; font-size: 16px; }',
-            '    .translation { fill: black; font-family: Arial; font-size: 14px; }',
-            '    .connector { stroke: red; stroke-width: 1.5; opacity: 0.6; fill: none; }',
-            '    .box { fill: none; stroke: red; stroke-width: 2; opacity: 0.8; }',
-            '  </style>',
-            # Position image after the margin
-            f'  <image x="{self.margin}" y="0" width="{self.width}" height="{self.height}" xlink:href="data:image/jpeg;base64,{image_base64}"/>'
+            f'<svg width="{self.total_width}" height="{self.height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">',  # noqa: E501
+            "  <style>",
+            "    .callout { fill: red; stroke: white; stroke-width: 2; opacity: 0.8; }",  # noqa: E501
+            "    .number { fill: white; font-family: Arial; font-size: 16px; }",  # noqa: E501
+            "    .translation { fill: black; font-family: Arial; font-size: 14px; }",  # noqa: E501
+            "    .connector { stroke: red; stroke-width: 1.5; opacity: 0.6; fill: none; }",  # noqa: E501
+            "    .box { fill: none; stroke: red; stroke-width: 2; opacity: 0.8; }",  # noqa: E501
+            "  </style>",
+            f'  <image x="{self.margin}" y="0" width="{self.width}" height="{self.height}" xlink:href="data:image/jpeg;base64,{image_base64}"/>',  # noqa: E501
         ]
 
         # Add connectors and callouts
         for i, element in enumerate(elements, start=1):
             text = html.escape(element.text)
-            translation = html.escape(element.translation) if element.translation else ""
+            translation = (
+                html.escape(element.translation) if element.translation else None
+            )
 
             # Calculate positions, applying scale factor
             x1 = int(element.bbox[0] * self.scale) + self.margin

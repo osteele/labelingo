@@ -4,6 +4,8 @@ from typing import List, Literal, Optional, Tuple
 # Define the valid backend types
 BackendType = Literal["claude", "tesseract", "easyocr", "paddleocr"]
 
+OutputFormat = Literal["svg", "png", "pdf"]
+
 
 @dataclass
 class AnalysisSettings:

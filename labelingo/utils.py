@@ -21,16 +21,13 @@ def open_file(path: Path):
         print(f"Failed to open file: {e}", file=sys.stderr)
 
 
-def get_rotated_image_data(image_path: Path) -> Tuple[bytes, Tuple[int, int]]:
-    """Read image file, rotate according to EXIF, and return base64 data and
-    dimensions"""
-    MAX_DIMENSION = 1568
-
+def get_rotated_image_data(image_path: Path, max_dimension: int = 1568) -> bytes:
+    """Read image file, rotate according to EXIF, and return base64 data"""
     with preprocess_image(image_path) as img:
         # Rescale if necessary
         width, height = img.size
-        if width > MAX_DIMENSION or height > MAX_DIMENSION:
-            scale = MAX_DIMENSION / max(width, height)
+        if max(width, height) > max_dimension:
+            scale = max_dimension / max(width, height)
             new_width = int(width * scale)
             new_height = int(height * scale)
             img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
@@ -40,7 +37,7 @@ def get_rotated_image_data(image_path: Path) -> Tuple[bytes, Tuple[int, int]]:
         img.save(buffer, format="JPEG", quality=95)
         image_data = buffer.getvalue()
 
-        return image_data, img.size
+        return image_data
 
 
 def get_image_exif(img: Image.Image) -> Optional[dict[int, Any]]:

@@ -16,13 +16,53 @@ Annotate UI screenshots with translations.
 ## Installation
 
 ```bash
-pip install labelingo
+pip install labelingo  # Basic installation with SVG support
 ```
 
 For OCR support:
 ```bash
-pip install 'labelingo[ocr]'
+pip install 'labelingo[ocr]'  # Install OCR backends
 ```
+
+For PNG and PDF output support:
+```bash
+pip install 'labelingo[cairo]'  # Install Cairo dependencies
+```
+
+For all features:
+```bash
+pip install 'labelingo[ocr,cairo]'  # Install all optional dependencies
+```
+
+### System Requirements
+
+For PNG and PDF output support, you'll need to install the Cairo graphics library:
+
+**macOS:**
+```bash
+# For Intel Macs:
+brew install cairo pango
+
+# For M1/M2 Macs, you may need to reinstall cairo for arm64:
+brew uninstall cairo pango
+brew install cairo pango
+pip uninstall cairosvg cairocffi
+pip install cairosvg cairocffi
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install libcairo2-dev libpango1.0-dev
+```
+
+**Fedora:**
+```bash
+sudo dnf install cairo-devel pango-devel
+```
+
+**Windows:**
+1. Install GTK3 runtime from [GTK for Windows Runtime Environment Installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer)
+2. Add the GTK3 bin directory to your PATH
 
 ## Configuration
 
@@ -62,6 +102,15 @@ labelingo screenshot.png --preview
 Use different OCR backend:
 ```bash
 labelingo screenshot.png --backend tesseract  # OpenAI key recommended for better translations
+```
+
+Specify output format:
+```bash
+labelingo screenshot.png --format svg  # Output as SVG
+labelingo screenshot.png --format png  # Output as PNG
+labelingo screenshot.png --format pdf  # Output as PDF
+# Or use file extension:
+labelingo screenshot.png -o output.pdf  # Output as PDF
 ```
 
 Full options:

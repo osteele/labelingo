@@ -3,14 +3,15 @@ import locale
 import sys
 import webbrowser
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 import click
 from PIL import Image
 
 from .annotator import SVGAnnotator
+from .cairo_utils import save_with_format
 from .ocr import AnalysisSettings, analyze_ui
-from .types import BackendType
+from .types import BackendType, OutputFormat
 from .utils import get_rotated_image_data, open_file
 
 
@@ -28,6 +29,13 @@ from .utils import get_rotated_image_data, open_file
 @click.option("--debug/--no-debug", default=False, help="Show debug information")
 @click.option("--no-cache", is_flag=True, help="Skip using cached responses")
 @click.option(
+    "-t",
+    "--type",
+    "format",
+    type=click.Choice(["svg", "png", "pdf"]),
+    help="Output format type (default: inferred from output path, or svg)",
+)
+@click.option(
     "--backend",
     type=click.Choice(["claude", "tesseract", "easyocr", "paddleocr"]),
     default="easyocr",
@@ -35,28 +43,34 @@ from .utils import get_rotated_image_data, open_file
 )
 def main(
     image_path: str,
-    output: Optional[str],
-    language: Optional[str],
+    output: str | None,
+    language: str | None,
     preview: bool,
     open_file_flag: bool,
     debug: bool,
     no_cache: bool,
     backend: str,
+    format: str | None,
 ):
-    """Annotate images with translations."""
+    """Annotate UI screenshots with translations."""
     input_path = Path(image_path)
 
     # Load and rotate image based on EXIF
     try:
-        image_data, _ = get_rotated_image_data(input_path)
+        image_data = get_rotated_image_data(input_path)
         image = Image.open(io.BytesIO(image_data))
     except Exception as e:
         raise click.ClickException(f"Failed to load image: {str(e)}")
 
-    # Default output path: replace extension with -annotated.svg
-    if not output:
-        output = str(
-            input_path.with_stem(input_path.stem + "-annotated").with_suffix(".svg")
+    output_format = infer_output_format(output, format)
+
+    # Determine output path
+    if output:
+        output_path = output
+    else:
+        input_path = Path(image_path)
+        output_path = str(
+            input_path.parent / f"{input_path.stem}-annotated.{output_format}"
         )
 
     # Default language: use system locale
@@ -79,24 +93,44 @@ def main(
     # Process image and create SVG
     analysis = analyze_ui(image, settings)
 
+    # Generate SVG
     svg_content = annotator.annotate(analysis.elements)
 
-    # Write SVG file
-    with open(output, "w") as f:
-        f.write(svg_content)
-
-    if debug:
-        print(f"Created SVG file: {output}")
+    # Save in requested format
+    if output_format == "svg":
+        with open(output_path, "w") as f:
+            f.write(svg_content)
+    else:
+        save_with_format(svg_content, output_path, output_format, debug)
+    print(f"Saved to {output_path}")
 
     # Handle preview/open options
     if preview:
         try:
-            webbrowser.open(f"file://{Path(output).absolute()}")
+            webbrowser.open(f"file://{Path(output_path).absolute()}")
         except Exception as e:
             print(f"Failed to open preview in browser: {e}", file=sys.stderr)
 
     if open_file_flag:
-        open_file(Path(output).absolute())
+        open_file(Path(output_path).absolute())
+
+
+def infer_output_format(
+    output_path: str | None, format: str | None = None
+) -> OutputFormat:
+    """Infer output format from file extension or format parameter."""
+    if format:
+        if format not in ["svg", "png", "pdf"]:
+            raise click.ClickException(f"Unsupported format: {format}")
+        return cast(OutputFormat, format)
+
+    # Infer format from output file extension
+    if output_path:
+        ext = output_path.split(".")[-1].lower()
+        if ext not in ["svg", "png", "pdf"]:
+            return "svg"
+
+    return "svg"
 
 
 if __name__ == "__main__":

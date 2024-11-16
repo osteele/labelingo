@@ -23,6 +23,11 @@ ocr = [
     "paddlepaddle>=2.5.0",
     "paddleocr>=2.7.0"
 ]
+cairo = [
+    "cairosvg>=2.7.0",
+    "pycairo>=1.25.0",
+    "cairocffi>=1.6.0",
+]
 dev = [
     "pre-commit>=3.6.0",
     "pyright>=1.1.350",
@@ -42,6 +47,7 @@ target-version = "py38"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["labelingo"]
 
@@ -62,6 +68,11 @@ dependencies = [
 ]
 
 [tool.hatch.envs.default.scripts]
+install = "uv pip install -e ."
+install-dev = "uv pip install -e .[dev]"
+install-cairo = "uv pip install -e .[cairo]"
+install-all = "uv pip install -e .[dev,cairo,ocr]"
+
 lint = [
     "ruff check .",
     "pyright"

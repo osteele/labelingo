@@ -1,0 +1,36 @@
+from typing import Optional, Union
+
+def svg2png(
+    bytestring: Optional[bytes] = None,
+    *,
+    file_obj: Optional[object] = None,
+    url: Optional[str] = None,
+    dpi: int = 96,
+    parent_width: Optional[int] = None,
+    parent_height: Optional[int] = None,
+    scale: int = 1,
+    unsafe: bool = False,
+    background_color: Optional[str] = None,
+    negate_colors: bool = False,
+    invert_images: bool = False,
+    write_to: Optional[Union[str, object]] = None,
+    output_width: Optional[int] = None,
+    output_height: Optional[int] = None,
+) -> Optional[bytes]: ...
+def svg2pdf(
+    bytestring: Optional[bytes] = None,
+    *,
+    file_obj: Optional[object] = None,
+    url: Optional[str] = None,
+    dpi: int = 96,
+    parent_width: Optional[int] = None,
+    parent_height: Optional[int] = None,
+    scale: int = 1,
+    unsafe: bool = False,
+    background_color: Optional[str] = None,
+    negate_colors: bool = False,
+    invert_images: bool = False,
+    write_to: Optional[Union[str, object]] = None,
+    output_width: Optional[int] = None,
+    output_height: Optional[int] = None,
+) -> Optional[bytes]: ...

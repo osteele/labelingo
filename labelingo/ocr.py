@@ -117,8 +117,7 @@ def analyze_ui(image: Image.Image, settings: AnalysisSettings) -> AnalysisResult
             "paddleocr": analyze_with_paddleocr,
         }[settings.backend]
 
-        if settings.debug:
-            print(f"Analyzing with {settings.backend} backend...")
+        print(f"Analyzing with {settings.backend} backend...")
         elements = backend_fn(image, source_language)
         result = AnalysisResult(
             image_dimensions=image.size,
