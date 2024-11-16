@@ -74,7 +74,7 @@ def main(
     )
 
     # Create annotator with debug flag
-    annotator = SVGAnnotator(image, input_path, debug=debug)
+    annotator = SVGAnnotator(image, debug=debug)
 
     # Process image and create SVG
     analysis = analyze_ui(image, settings)

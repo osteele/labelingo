@@ -1,7 +1,6 @@
 import base64
 import html
 import io
-from pathlib import Path
 from typing import List
 
 from PIL import Image
@@ -14,17 +13,16 @@ class SVGAnnotator:
     def __init__(
         self,
         image: Image.Image,
-        image_path: Path,
-        max_width: int = 1200,
+        max_width: int = 800,
+        max_height: int = 800,
         debug: bool = False,
     ):
         """Initialize SVG annotator with image dimensions and optional max width."""
         self.image = image
-        self.image_path = image_path
         self.debug = debug
 
         # Calculate scale to fit within max_width while maintaining aspect ratio
-        self.scale = min(1.0, max_width / image.width)
+        self.scale = min(1.0, max_width / image.width, max_height / image.height)
         self.width = int(image.width * self.scale)
         self.height = int(image.height * self.scale)
 
