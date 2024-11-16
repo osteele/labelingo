@@ -1,10 +1,11 @@
-from pathlib import Path
-from typing import List
 import base64
 import html
+from pathlib import Path
+from typing import List
 
-from .utils import get_rotated_image_data
 from .ocr import UIElement
+from .utils import get_rotated_image_data
+
 
 class SVGAnnotator:
     def __init__(self, image_path: Path, width: int, height: int, max_width: int = 1200, debug: bool = False):
@@ -47,7 +48,7 @@ class SVGAnnotator:
         # Add connectors and callouts
         for i, element in enumerate(elements, start=1):
             text = html.escape(element.text)
-            translation = html.escape(element.translation)
+            translation = html.escape(element.translation) if element.translation else ""
 
             # Calculate positions, applying scale factor
             x1 = int(element.bbox[0] * self.scale) + self.margin
@@ -84,10 +85,14 @@ class SVGAnnotator:
                 f'width="{x2-x1}" height="{y2-y1}"/>'
             )
 
-            # Add text in left margin
+            # Update text display format
+            display_text = f"{i}. {text}"
+            if translation:
+                display_text += f" → {translation}"
+
             svg_lines.append(
                 f'  <text class="translation" x="{text_x}" y="{text_y}">'
-                f'{i}. {text} → {translation}</text>'
+                f'{display_text}</text>'
             )
 
         svg_lines.append('</svg>')

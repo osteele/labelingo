@@ -1,11 +1,11 @@
 import base64
 import hashlib
 import json
-import re
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple, Literal
+from typing import List, Literal, Optional, Tuple
 
 import click
 from anthropic import (
@@ -17,8 +17,9 @@ from anthropic import (
 from dotenv import load_dotenv
 from PIL import Image
 
+from .openai_analysis import get_openai_analysis
 from .response_cache import ResponseCache
-from .utils import get_rotated_image_data, preprocess_image  # Import from utils
+from .utils import get_rotated_image_data  # Import from utils
 
 # Define the valid backend types
 BackendType = Literal["claude", "tesseract", "easyocr", "paddleocr"]
@@ -41,6 +42,7 @@ class UIElement:
 class AnalysisResult:
     image_dimensions: Tuple[int, int]  # width, height
     elements: List[UIElement]
+    source_language: Optional[str] = None  # Add source language field
 
 # Lazy imports for OCR backends
 def import_ocr_backend(backend: str):
@@ -113,36 +115,41 @@ def get_analysis_prompt(target_lang: str) -> str:
     """
 
 
-def analyze_ui(
-    settings: AnalysisSettings,
-) -> AnalysisResult:
-    """Analyze UI screenshot using specified backend"""
+def analyze_ui(settings: AnalysisSettings) -> AnalysisResult:
+    """Analyze UI screenshot using specified backend and OpenAI for translations"""
 
-    backends = {
-        "claude": analyze_with_claude,
-        "tesseract": analyze_with_tesseract,
-        "easyocr": analyze_with_easyocr,
-        "paddleocr": analyze_with_paddleocr
+    # First get OpenAI analysis for translations
+    openai_analysis = get_openai_analysis(settings.image_path, settings.target_lang)
+    openai_translations = {
+        elem["text"]: elem["translation"]
+        for elem in openai_analysis["elements"]
     }
 
-    if settings.backend not in backends:
-        raise ValueError(f"Unknown backend: {settings.backend}")
-
-    if settings.debug:
-        print(f"Using {settings.backend} backend...")
-
+    # Get OCR results from selected backend
     if settings.backend == "claude":
-        return analyze_with_claude(settings)
+        result = analyze_with_claude(settings)
     else:
-        elements = backends[settings.backend](
-            settings.image_path,
-            settings.target_lang,
-            debug=settings.debug
-        )
-        return AnalysisResult(
+        elements = {
+            "claude": analyze_with_claude,
+            "tesseract": analyze_with_tesseract,
+            "easyocr": analyze_with_easyocr,
+            "paddleocr": analyze_with_paddleocr,
+        }[settings.backend](settings.image_path, openai_analysis.get("source_language"))
+
+        result = AnalysisResult(
             image_dimensions=Image.open(settings.image_path).size,
             elements=elements
         )
+
+    # Update translations from OpenAI results
+    for element in result.elements:
+        if not element.translation and element.text in openai_translations:
+            element.translation = openai_translations[element.text]
+
+    # Add source language from OpenAI analysis
+    result.source_language = openai_analysis.get("source_language")
+
+    return result
 
 def analyze_with_tesseract(image_path: Path, lang_code: str) -> List[UIElement]:
     """Analyze using Tesseract with support for multiple languages"""

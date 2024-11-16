@@ -1,4 +1,5 @@
 import locale
+import sys
 import webbrowser
 from pathlib import Path
 
@@ -69,6 +70,10 @@ def main(
 
     # Process image and create SVG
     analysis = analyze_ui(settings)
+
+    if debug and analysis.source_language:
+        print(f"Detected source language: {analysis.source_language}")
+
     svg_content = annotator.annotate(analysis.elements, Path(output))
 
     # Write SVG file
