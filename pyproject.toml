@@ -39,3 +39,9 @@ target-version = "py38"
 select = ["E", "F", "I"]
 [tool.hatch.build.targets.wheel]
 packages = ["labelingo"]
+
+[tool.uv]
+dev-dependencies = [
+    "pyright>=1.1.389",
+    "ruff>=0.7.4",
+]

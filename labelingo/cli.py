@@ -2,12 +2,13 @@ import locale
 import sys
 import webbrowser
 from pathlib import Path
+from typing import Optional, cast
 
 import click
 from PIL import Image
 
 from .annotator import SVGAnnotator
-from .ocr import AnalysisSettings, analyze_ui
+from .ocr import AnalysisSettings, BackendType, analyze_ui
 from .utils import open_file
 
 
@@ -32,8 +33,8 @@ from .utils import open_file
 )
 def main(
     image_path: str,
-    output: str,
-    language: str,
+    output: Optional[str],
+    language: Optional[str],
     preview: bool,
     open_file_flag: bool,
     debug: bool,
@@ -51,15 +52,17 @@ def main(
 
     # Default language: use system locale
     if not language:
-        try:
-            language = locale.getlocale()[0].split("_")[0]  # Get language code from locale
-        except (AttributeError, IndexError):
-            language = "en"  # Fallback to English
+        locale_info = locale.getlocale()[0]
+        language = locale_info.split("_")[0] if locale_info else "en"
+
+    # Cast the backend string to BackendType since we know it's valid from
+    # Click's Choice
+    backend_type = cast(BackendType, backend.lower())
 
     settings = AnalysisSettings(
-        image_path=input_path,
+        image_path=Path(input_path),
         target_lang=language,
-        backend=backend,
+        backend=backend_type,
         no_cache=no_cache,
         debug=debug,
     )

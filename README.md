@@ -39,8 +39,8 @@ OPENAI_API_KEY=your-openai-api-key  # Optional, for improved translations
 ```
 
 You can get API keys from:
-- Claude (required): https://console.anthropic.com/
-- OpenAI (optional): https://platform.openai.com/api-keys
+- Claude (required): <https://console.anthropic.com/>
+- OpenAI (optional): <https://platform.openai.com/api-keys>
 
 ## Usage
 

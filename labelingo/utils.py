@@ -3,7 +3,7 @@ import subprocess
 import sys
 from io import BytesIO
 from pathlib import Path
-from typing import Tuple
+from typing import Any, Optional, Tuple, cast
 
 from PIL import ExifTags, Image
 
@@ -22,7 +22,8 @@ def open_file(path: Path):
 
 
 def get_rotated_image_data(image_path: Path) -> Tuple[bytes, Tuple[int, int]]:
-    """Read image file, rotate according to EXIF, and return base64 data and dimensions"""
+    """Read image file, rotate according to EXIF, and return base64 data and
+    dimensions"""
     MAX_DIMENSION = 1568
 
     with preprocess_image(image_path) as img:
@@ -42,26 +43,44 @@ def get_rotated_image_data(image_path: Path) -> Tuple[bytes, Tuple[int, int]]:
         return image_data, img.size
 
 
+def get_image_exif(img: Image.Image) -> Optional[dict[int, Any]]:
+    """Safely get EXIF data from an image, returning None if not available"""
+    if not hasattr(img, "_getexif"):
+        return None
+    try:
+        # Cast the image to Any to bypass type checking for _getexif
+        img_any = cast(Any, img)
+        exif = img_any._getexif()
+        if exif is None:
+            return None
+        return dict(exif.items())
+    except (AttributeError, KeyError, TypeError):
+        return None
+
+
 def preprocess_image(image_path: Path) -> Image.Image:
     """Open image, handle EXIF rotation, convert to RGB"""
     img = Image.open(image_path)
 
-    # Handle EXIF rotation
     try:
-        for orientation in ExifTags.TAGS.keys():
-            if ExifTags.TAGS[orientation] == "Orientation":
-                break
+        exif = get_image_exif(img)
+        if exif is not None:
+            # Find the orientation tag
+            orientation_key = next(
+                (key for key, value in ExifTags.TAGS.items() if value == "Orientation"),
+                None,
+            )
 
-        exif = dict(img._getexif().items())
-        if orientation in exif:
-            if exif[orientation] == 3:
-                img = img.rotate(180, expand=True)
-            elif exif[orientation] == 6:
-                img = img.rotate(270, expand=True)
-            elif exif[orientation] == 8:
-                img = img.rotate(90, expand=True)
-    except (AttributeError, KeyError, IndexError):
-        # No EXIF data or no orientation tag
+            if orientation_key and orientation_key in exif:
+                orientation = exif[orientation_key]
+                if orientation == 3:
+                    img = img.rotate(180, expand=True)
+                elif orientation == 6:
+                    img = img.rotate(270, expand=True)
+                elif orientation == 8:
+                    img = img.rotate(90, expand=True)
+    except Exception:
+        # Ignore any EXIF-related errors
         pass
 
     # Convert to RGB if necessary

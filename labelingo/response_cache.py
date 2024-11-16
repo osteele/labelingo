@@ -2,7 +2,7 @@ import hashlib
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 
 class ResponseCache:
@@ -26,10 +26,10 @@ class ResponseCache:
 
     def _cleanup_old_cache(self, max_files: int = 100, max_age_days: int = 14):
         """Remove old cache files if there are too many"""
-        cache_files = []
+        cache_files: List[Path] = []
         for subdir in self.cache_dir.iterdir():
             if subdir.is_dir():
-                cache_files.extend(subdir.glob("*.json"))
+                cache_files.extend(list(subdir.glob("*.json")))
 
         if len(cache_files) > max_files:
             cutoff_date = datetime.now() - timedelta(days=max_age_days)

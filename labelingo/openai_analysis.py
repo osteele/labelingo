@@ -3,11 +3,12 @@ import hashlib
 import io
 import json
 from pathlib import Path
-from typing import List as PyList
+from typing import Any, List
 
 import click
 from dotenv import load_dotenv
 from openai import OpenAI
+from openai.types.chat import ChatCompletionUserMessageParam
 from PIL import Image
 from pydantic import BaseModel
 
@@ -20,9 +21,10 @@ class UITextElement(BaseModel):
 
 class UIAnalysis(BaseModel):
     source_language: str
-    elements: PyList[UITextElement]
+    elements: List[UITextElement]
 
-def get_openai_analysis(image_path: Path, target_lang: str) -> dict:
+
+def get_openai_analysis(image_path: Path, target_lang: str) -> dict[str, Any]:
     """Get text analysis and translations from OpenAI Vision"""
     load_dotenv()
     client = OpenAI()
@@ -35,7 +37,7 @@ def get_openai_analysis(image_path: Path, target_lang: str) -> dict:
     max_short_edge = 768
     scale = min(max_long_edge / max(image.size), max_short_edge / min(image.size))
     if scale < 1.0:
-        new_size = tuple(int(dim * scale) for dim in image.size)
+        new_size = (int(image.size[0] * scale), int(image.size[1] * scale))
         image = image.resize(new_size, Image.Resampling.LANCZOS)
 
     # Convert to JPEG bytes
@@ -49,7 +51,7 @@ def get_openai_analysis(image_path: Path, target_lang: str) -> dict:
     image_hash = hashlib.sha256(image_data).hexdigest()
 
     # Schema hash includes the structure and target language
-    messages = [
+    messages: List[ChatCompletionUserMessageParam] = [
         {
             "role": "user",
             "content": [
@@ -59,13 +61,15 @@ def get_openai_analysis(image_path: Path, target_lang: str) -> dict:
                 },
                 {
                     "type": "text",
-                    "text": f"Analyze this UI screenshot. Identify the source language as a two-letter code (e.g. 'en') and extract all UI text elements (labels, buttons, etc.). Provide translations to {target_lang}.",
+                    "text": f"Analyze this UI screenshot. Identify the source language as a two-letter code (e.g. 'en') and extract all UI text elements (labels, buttons, etc.). Provide translations to {target_lang}.",  # noqa: E501
                 },
             ],
         }
     ]
 
-    schema_hash = hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest()
+    schema_hash = hashlib.sha256(
+        json.dumps(messages, sort_keys=True).encode()
+    ).hexdigest()
     cache_key = f"{api_endpoint}_{schema_hash}_{image_hash}"
 
     cache = ResponseCache()
@@ -75,16 +79,14 @@ def get_openai_analysis(image_path: Path, target_lang: str) -> dict:
         return json.loads(cached_response)
 
     try:
-        print(f"Sending request to OpenAI API...")
+        print("Sending request to OpenAI API...")
         response = client.beta.chat.completions.parse(
             model="gpt-4o-mini",
             messages=messages,
             response_format=UIAnalysis,
         )
 
-        result = response.choices[0].message.parsed
-
-        # Convert Pydantic model to dict for caching
+        result = response.choices[0].message
         result_dict = result.model_dump()
         cache.set(api_endpoint, cache_key, json.dumps(result_dict))
         return result_dict
