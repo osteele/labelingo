@@ -1,8 +1,10 @@
 import os
 import platform
+import subprocess
 import sys
 from importlib.util import find_spec
 from pathlib import Path
+from shutil import which
 
 import click
 
@@ -94,6 +96,62 @@ def check_cairo_installation() -> bool:
     return True
 
 
+def _find_converter_tool() -> tuple[str, str] | None:
+    """Find available SVG converter tool. Returns (tool_name, command_name)."""
+    tools = [
+        ("inkscape", "inkscape"),
+        ("imagemagick", "convert"),
+        ("librsvg", "rsvg-convert"),
+    ]
+
+    for tool_name, command in tools:
+        if which(command):
+            return tool_name, command
+    return None
+
+
+def convert_with_external_tool(
+    svg_content: str, output_path: str, format: str
+) -> tuple[bool, str]:
+    """Try to convert SVG using external tools. Returns (success, tool_name)."""
+    tool_info = _find_converter_tool()
+    if not tool_info:
+        return False, ""
+
+    tool_name, command = tool_info
+    temp_svg = Path(output_path).with_suffix(".svg")
+
+    try:
+        # Save temporary SVG file
+        with open(temp_svg, "w") as f:
+            f.write(svg_content)
+
+        if tool_name == "inkscape":
+            subprocess.run(
+                [command, "--export-type", format, str(temp_svg), "-o", output_path],
+                check=True,
+                capture_output=True,
+            )
+        elif tool_name == "imagemagick":
+            subprocess.run(
+                [command, str(temp_svg), output_path], check=True, capture_output=True
+            )
+        elif tool_name == "librsvg":
+            subprocess.run(
+                [command, "-f", format, "-o", output_path, str(temp_svg)],
+                check=True,
+                capture_output=True,
+            )
+
+        return True, tool_name
+
+    except subprocess.CalledProcessError as e:
+        print(f"External tool error: {e.stderr.decode()}", file=sys.stderr)
+        return False, ""
+    finally:
+        temp_svg.unlink(missing_ok=True)
+
+
 def save_with_format(
     svg_content: str, output_path: str, format: OutputFormat, debug: bool = False
 ) -> None:
@@ -105,16 +163,18 @@ def save_with_format(
     if format == "svg":
         with open(output_path, "w") as f:
             f.write(svg_content)
-    else:
-        if not check_cairo_installation():
-            raise click.ClickException(
-                f"Cannot create {format.upper()} file: Cairo library not found. "
-                "See error message above for installation instructions."
-            )
+        return
 
-        if not CAIRO_AVAILABLE:
-            raise click.ClickException("Cairo library not available")
+    # Try external tools first
+    success, tool_name = convert_with_external_tool(svg_content, output_path, format)
+    if success:
+        if debug:
+            print(f"Debug: Created {format.upper()} file using {tool_name}")
+            print(f"Debug: Created file size: {Path(output_path).stat().st_size} bytes")
+        return
 
+    # Fall back to Cairo if external tools aren't available
+    if check_cairo_installation():
         try:
             # Configure font handling
             import os
@@ -152,10 +212,22 @@ def save_with_format(
                     write_to=output_path,
                     unsafe=True,  # Enable better font handling
                 )
-        except Exception as e:
-            raise click.ClickException(f"Failed to convert to {format}: {str(e)}")
 
-    if debug:
-        print(
-            f"Debug: Created {format.upper()} file with size {Path(output_path).stat().st_size} bytes"  # noqa: E501
-        )
+            if debug:
+                print(f"Debug: Created {format.upper()} file using Cairo")
+                print(
+                    f"Debug: Created file size: {Path(output_path).stat().st_size} bytes"
+                )
+            return
+        except Exception as e:
+            if debug:
+                print(f"Cairo conversion failed: {e}", file=sys.stderr)
+
+    # If all methods fail
+    raise click.ClickException(
+        f"Cannot create {format.upper()} file: No conversion tools available. Please install "
+        "Inkscape, ImageMagick, or Cairo:\n"
+        "  macOS: brew install inkscape\n"
+        "  Linux: sudo apt-get install inkscape\n"
+        "  Windows: Install Inkscape from the Windows Store or https://inkscape.org/"
+    )
