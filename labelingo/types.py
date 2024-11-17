@@ -20,7 +20,7 @@ class AnalysisSettings:
 @dataclass
 class UIElement:
     text: str
-    translation: str
+    translation: str | None
     bbox: Tuple[int, int, int, int]  # x1, y1, x2, y2
 
 

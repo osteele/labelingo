@@ -106,6 +106,7 @@ def main(
             )
         except Exception as e:
             print(f"Error processing {image_path}: {e}", file=sys.stderr)
+            raise
 
 
 def process_image(

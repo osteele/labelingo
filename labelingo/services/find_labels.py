@@ -320,7 +320,7 @@ def analyze_with_paddleocr(image: Image.Image, lang: str) -> List[UIElement]:
 def find_label_locations(
     image: Image.Image,
     settings: AnalysisSettings,
-    openai_analysis: dict,
+    scene_analysis: AnalysisResult,
     source_language: str,
 ) -> AnalysisResult:
     if settings.ocr_service == "claude":
@@ -365,7 +365,7 @@ def find_label_locations(
         cache.set("ocr", cache_key, json.dumps(elements_data))  # noqa: F821
 
     result = AnalysisResult(
-        title=openai_analysis.get("title", None),
+        title=scene_analysis.title,
         elements=elements,
         source_language=source_language,
     )

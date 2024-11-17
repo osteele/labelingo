@@ -2,7 +2,7 @@ import base64
 import hashlib
 import io
 import json
-from typing import Any, List
+from typing import List
 
 import click
 from dotenv import load_dotenv
@@ -12,7 +12,7 @@ from PIL import Image
 from pydantic import BaseModel
 
 from ..response_cache import ResponseCache
-from ..types import AnalysisSettings
+from ..types import AnalysisResult, AnalysisSettings, UIElement
 
 
 class UITextElement(BaseModel):
@@ -26,9 +26,9 @@ class UIAnalysis(BaseModel):
     elements: List[UITextElement]
 
 
-def get_openai_analysis(
+def openai_scene_analysis(
     image: Image.Image, settings: AnalysisSettings
-) -> dict[str, Any]:
+) -> AnalysisResult:
     """Get text analysis and translations from OpenAI Vision"""
     load_dotenv()
     client = OpenAI()
@@ -104,8 +104,15 @@ def get_openai_analysis(
     if len(source_languages) > 1:
         source_languages = [ln.strip() for ln in source_languages if ln != target_lang]
 
-    return dict(
+    return AnalysisResult(
         title=result_dict.get("title", None),
         source_language=source_languages[0],
-        elements=result_dict.get("elements", []),
+        elements=[
+            UIElement(
+                text=elem["text"],
+                translation=elem["translation"],
+                bbox=(0, 0, 0, 0),
+            )
+            for elem in result_dict.get("elements", [])
+        ],
     )
