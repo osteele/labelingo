@@ -73,11 +73,15 @@ install-dev = "uv pip install -e .[dev]"
 install-cairo = "uv pip install -e .[cairo]"
 install-all = "uv pip install -e .[dev,cairo,ocr]"
 
+fix = [
+    "ruff format .",
+    "ruff check --fix ."
+]
+fmt = "ruff format ."
 lint = [
     "ruff check .",
     "pyright"
 ]
-fmt = "ruff format ."
 typecheck = "pyright"
 
 [tool.hatch.envs.cairo]

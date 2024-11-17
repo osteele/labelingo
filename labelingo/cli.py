@@ -9,10 +9,10 @@ import click
 from PIL import Image
 
 from .annotator import SVGAnnotator
-from .ocr import AnalysisSettings, analyze_ui
 from .response_cache import ResponseCache
+from .services import analyze_ui
 from .svg_converter import save_with_format
-from .types import BackendType, OutputFormat
+from .types import AnalysisSettings, OcrServiceType, OutputFormat, TranslationService
 from .utils import get_rotated_image_data, open_file
 
 
@@ -38,7 +38,12 @@ from .utils import get_rotated_image_data, open_file
     help="Output format type (default: inferred from output path, or svg)",
 )
 @click.option(
-    "--backend",
+    "--scene-analysis",
+    type=click.Choice(["openai", "claude"]),
+    default="openai",
+)
+@click.option(
+    "--label-location",
     type=click.Choice(["claude", "tesseract", "easyocr", "paddleocr"]),
     default="easyocr",
     help="OCR backend to use for text detection",
@@ -52,8 +57,9 @@ def main(
     debug: bool,
     no_cache: bool,
     clear_cache: bool,
-    backend: str,
     format: str | None,
+    label_location: str,
+    scene_analysis: str,
 ):
     """Annotate UI screenshots with translations."""
     if clear_cache:
@@ -77,10 +83,12 @@ def main(
         locale_info = locale.getlocale()[0]
         language = locale_info.split("_")[0] if locale_info else "en"
 
-    backend_type = cast(BackendType, backend.lower())
+    label_location_service = cast(LabelLocationService, label_location.lower())
+    scene_analysis = cast(SceneAnalysisService, scene_analysis.lower())
     settings = AnalysisSettings(
         target_lang=language,
-        backend=backend_type,
+        label_location_service=label_location_service,
+        scene_analysis_service=scene_analysis,
         no_cache=no_cache,
         debug=debug,
     )

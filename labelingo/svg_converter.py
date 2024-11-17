@@ -53,7 +53,7 @@ def _initialize_cairo():
 _initialize_cairo()
 
 try:
-    import cairosvg
+    import cairosvg  # type: ignore
 
     CAIRO_AVAILABLE = True
 except ImportError as e:

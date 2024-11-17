@@ -4,10 +4,10 @@ Annotate UI screenshots with translations.
 
 ## Features
 
-- 🔍 Detects text in UI screenshots using multiple OCR backends
-- 🌐 Translates text using OpenAI and Claude Vision APIs
+- 🔍 Detects text using OCR services (OpenCV, Tesseract)
+- 🌐 Translates using AI services (OpenAI, Anthropic Claude)
 - 🎨 Generates interactive SVG with annotations and translations
-- 📁 Supports batch processing of multiple images
+- 📁 Supports batch processing of multiple files
 
 ## Quick Start
 
@@ -16,9 +16,10 @@ Annotate UI screenshots with translations.
 pip install labelingo
 ```
 
-1. Set up your API key:
+1. Set up your API keys:
 ```bash
 export OPENAI_API_KEY=your-openai-api-key
+export ANTHROPIC_API_KEY=your-anthropic-api-key  # Optional, for Claude
 ```
 
 1. Process an image:
@@ -30,9 +31,9 @@ labelingo *.png -o translated/     # Process multiple files
 
 ## Installation Options
 
-For additional OCR back-end support:
+For additional OCR service support:
 ```bash
-pip install 'labelingo[ocr]'       # Install OCR backends
+pip install 'labelingo[ocr]'       # Install OCR service dependencies
 ```
 
 For PNG/PDF output:

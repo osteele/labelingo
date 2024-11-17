@@ -5,11 +5,10 @@ from typing import List
 
 from PIL import Image
 
-from .ocr import UIElement
+from .types import UIElement
 
 
 class SVGAnnotator:
-
     def __init__(
         self,
         image: Image.Image,
@@ -81,10 +80,10 @@ class SVGAnnotator:
         buffer = io.BytesIO()
         self.image.save(buffer, format="JPEG", quality=95)
         image_data = buffer.getvalue()
-        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        image_base64 = base64.b64encode(image_data).decode("utf-8")
 
         svg_lines = [
-            f'<svg width="{self.total_width}" height="{self.total_height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">',
+            f'<svg width="{self.total_width}" height="{self.total_height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">',  # noqa: E501
             "  <defs>",
             '    <linearGradient id="lineGradient">',
             '      <stop offset="0%" stop-color="#FF0000" stop-opacity="0.9"/>',
@@ -92,18 +91,18 @@ class SVGAnnotator:
             "    </linearGradient>",
             "  </defs>",
             "  <style>",
-            f"    .callout {{ fill: #FF595E; stroke: white; stroke-width: 2; opacity: 0.7; }}",
-            f"    .number {{ fill: #1982C4; font-family: {self.font_family}; font-weight: bold; font-size: {self.number_font_size}px; }}",
-            f"    .translation {{ font-family: {self.font_family}; font-size: {self.text_font_size}px; }}",
+            "    .callout { fill: #FF595E; stroke: white; stroke-width: 2; opacity: 0.7; }",  # noqa: E501
+            f"    .number {{ fill: #1982C4; font-family: {self.font_family}; font-weight: bold; font-size: {self.number_font_size}px; }}",  # noqa: E501
+            f"    .translation {{ font-family: {self.font_family}; font-size: {self.text_font_size}px; }}",  # noqa: E501
             "    .text-background { fill: white; }",
-            f"    .japanese {{ font-family: {self.font_family}; color: #666666; font-style: italic; }}",
-            "    .connector { stroke: #E85D75; stroke-width: 2; fill: none; stroke-linecap: round; opacity: 0.9; }",
-            "    .connector-outline { stroke: white; stroke-width: 4; fill: none; stroke-linecap: round; opacity: 0.6; }",
-            "    .box { fill: none; stroke: #E85D75; stroke-width: 1.5; opacity: 0.6; rx: 6px; ry: 6px; }",
-            f"    .title {{ fill: #1982C4; font-family: {self.font_family}; font-size: {self.title_font_size}px; font-weight: bold; }}",
-            f"    .bullet {{ fill: #666666; font-family: {self.font_family}; font-size: 14px; }}",
+            f"    .japanese {{ font-family: {self.font_family}; color: #666666; font-style: italic; }}",  # noqa: E501
+            "    .connector { stroke: #E85D75; stroke-width: 2; fill: none; stroke-linecap: round; opacity: 0.9; }",  # noqa: E501
+            "    .connector-outline { stroke: white; stroke-width: 4; fill: none; stroke-linecap: round; opacity: 0.6; }",  # noqa: E501
+            "    .box { fill: none; stroke: #E85D75; stroke-width: 1.5; opacity: 0.6; rx: 6px; ry: 6px; }",  # noqa: E501
+            f"    .title {{ fill: #1982C4; font-family: {self.font_family}; font-size: {self.title_font_size}px; font-weight: bold; }}",  # noqa: E501
+            f"    .bullet {{ fill: #666666; font-family: {self.font_family}; font-size: 14px; }}",  # noqa: E501
             "  </style>",
-            f'  <image x="{self.left_margin}" y="0" width="{self.width}" height="{self.height}" xlink:href="data:image/jpeg;base64,{image_base64}"/>',
+            f'  <image x="{self.left_margin}" y="0" width="{self.width}" height="{self.height}" xlink:href="data:image/jpeg;base64,{image_base64}"/>',  # noqa: E501
         ]
 
         # Sort elements by their vertical position (y coordinate)
@@ -169,13 +168,13 @@ class SVGAnnotator:
 
                 # Add connector paths and box...
                 svg_lines.append(
-                    f'  <path class="connector-outline" d="M {start_x} {text_y} C {ctrl1_x} {ctrl1_y}, {ctrl2_x} {ctrl2_y}, {connect_x} {center_y}"/>'
+                    f'  <path class="connector-outline" d="M {start_x} {text_y} C {ctrl1_x} {ctrl1_y}, {ctrl2_x} {ctrl2_y}, {connect_x} {center_y}"/>'  # noqa: E501
                 )
                 svg_lines.append(
-                    f'  <path class="connector" d="M {start_x} {text_y} C {ctrl1_x} {ctrl1_y}, {ctrl2_x} {ctrl2_y}, {connect_x} {center_y}"/>'
+                    f'  <path class="connector" d="M {start_x} {text_y} C {ctrl1_x} {ctrl1_y}, {ctrl2_x} {ctrl2_y}, {connect_x} {center_y}"/>'  # noqa: E501
                 )
                 svg_lines.append(
-                    f'  <rect class="box" x="{x1}" y="{y1}" width="{x2-x1}" height="{y2-y1}"/>'
+                    f'  <rect class="box" x="{x1}" y="{y1}" width="{x2-x1}" height="{y2-y1}"/>'  # noqa: E501
                 )
 
                 # Format text with number
@@ -184,7 +183,7 @@ class SVGAnnotator:
                         f'<tspan class="number">{i}.</tspan> '
                         f'<tspan class="japanese">{text}</tspan> '
                         f'<tspan class="separator"> — </tspan> '
-                        f'<tspan class="english">{element.translation}</tspan>'
+                        f'<tspan class="english">{translation}</tspan>'
                     )
                 else:
                     display_text = f'<tspan class="number">{i}.</tspan> {text}'
@@ -231,7 +230,7 @@ class SVGAnnotator:
             # Then draw the text
             svg_lines.append(
                 f'  <text class="translation" x="{text_x}" y="{text_y}">'
-                f'{display_text}</text>'
+                f"{display_text}</text>"
             )
 
         # Add title if provided...
@@ -241,11 +240,11 @@ class SVGAnnotator:
             title_y = self.height + 30  # Position title 30px below the image
             title_x = self.left_margin + (self.width / 2)  # Center title horizontally
             svg_lines.append(
-                f'  <text class="title" x="{title_x}" y="{title_y}" text-anchor="middle">'
+                f'  <text class="title" x="{title_x}" y="{title_y}" text-anchor="middle">'  # noqa: E501
                 f"{html.escape(title)}</text>"
             )
 
         # Close the SVG tag
-        svg_lines.append('</svg>')
+        svg_lines.append("</svg>")
 
-        return '\n'.join(svg_lines)
+        return "\n".join(svg_lines)

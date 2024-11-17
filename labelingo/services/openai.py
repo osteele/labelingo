@@ -11,8 +11,8 @@ from openai.types.chat import ChatCompletionUserMessageParam
 from PIL import Image
 from pydantic import BaseModel
 
-from .response_cache import ResponseCache
-from .types import AnalysisSettings
+from ..response_cache import ResponseCache
+from ..types import AnalysisSettings
 
 
 class UITextElement(BaseModel):

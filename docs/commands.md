@@ -39,11 +39,18 @@ labelingo image.png -l fr           # Translate to French
 labelingo *.png -l ja              # Translate multiple files to Japanese
 ```
 
-`--backend [claude|tesseract|easyocr|paddleocr]`
+`--scene-analysis [claude|openai]`
+: backend to use for overall image analysis. Defaults to OpenAI.
+```bash
+labelingo image.png --scene-analysis claude        # Use Claude Vision API
+labelingo image.png --scene-analysis tesseract     # Use Tesseract OCR
+```
+
+`--label-location [claude|tesseract|easyocr|paddleocr]`
 : OCR backend to use for text detection. Defaults to easyocr.
 ```bash
-labelingo image.png --backend claude        # Use Claude Vision API
-labelingo image.png --backend tesseract     # Use Tesseract OCR
+labelingo image.png --label-location easyocr       # Use EasyOCR
+labelingo image.png --label-location tesseract     # Use Tesseract OCR
 ```
 
 ### Preview and Opening

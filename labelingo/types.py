@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from typing import List, Literal, Tuple
 
 # Define the valid backend types
-BackendType = Literal["claude", "tesseract", "easyocr", "paddleocr"]
+OcrServiceType = Literal["claude", "tesseract", "easyocr", "paddleocr"]
+TranslationService = Literal["openai", "claude"]
 
 OutputFormat = Literal["svg", "png", "pdf"]
 
@@ -10,7 +11,8 @@ OutputFormat = Literal["svg", "png", "pdf"]
 @dataclass
 class AnalysisSettings:
     target_lang: str
-    backend: BackendType = "easyocr"
+    ocr_service: OcrServiceType = "easyocr"
+    translation_service: TranslationService = "openai"
     no_cache: bool = False
     debug: bool = False
 
