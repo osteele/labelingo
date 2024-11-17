@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import io
 import json
 import os
 import re
@@ -37,8 +38,23 @@ def analyze_with_claude(
     if settings.debug:
         print("Reading and processing image...")
 
+    # Scale to max 1568 on longest side
+    max_long_edge = 1568
+    scale = min(max_long_edge / max(image.size), 1.0)
+    print(f"Image size: {image.size}")
+    print(f"Scale factor: {scale}")
+    if scale < 1.0:
+        new_size = (int(image.size[0] * scale), int(image.size[1] * scale))
+        image = image.resize(new_size, Image.Resampling.LANCZOS)
+
+    # Convert to JPEG bytes
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=85)
+    image_data = buffer.getvalue()
+    print(f"Image data size: {len(image_data)} bytes")
+
     # Calculate image hash
-    image_hash = hashlib.sha256(image.tobytes()).hexdigest()
+    image_hash = hashlib.sha256(image_data).hexdigest()
 
     prompt = get_analysis_prompt(settings.target_lang)
     # Combine image and prompt hashes
@@ -54,7 +70,7 @@ def analyze_with_claude(
             print("Using cached analysis...")
         response_text = cached_response
     else:
-        image_base64 = base64.b64encode(image.tobytes()).decode("utf-8")
+        image_base64 = base64.b64encode(image_data).decode("utf-8")
 
         try:
             print("Analyzing image with Claude AI...", end="", flush=True)
@@ -125,30 +141,24 @@ def analyze_with_claude(
         data = json.loads(match.group(0))
         if settings.debug:
             print("Raw response data:", data)
+            print("Element[0]:", data["elements"][0])
+            print("  bbox:", data["elements"][0]["bbox"])
+            print("    x1:", data["elements"][0]["bbox"][0])
+            print("    y1:", data["elements"][0]["bbox"][1])
+            print("    x2:", data["elements"][0]["bbox"][2])
+            print("    y2:", data["elements"][0]["bbox"][3])
 
-        claude_dims = data.get("image_dimensions", {})
-        claude_width = claude_dims.get("width", 600)
-        claude_height = claude_dims.get("height", 800)
-
-        if settings.debug:
-            print(f"Claude dimensions: {claude_width}x{claude_height}")
-            print(f"Actual dimensions: {image.width}x{image.height}")
-
-        width_scale = image.width / claude_width
-        height_scale = image.height / claude_height
-
-        if settings.debug:
-            print(f"Scale factors: width={width_scale}, height={height_scale}")
-
+        # Convert bbox from space of uploaded image to source image space
+        rscale = 1 / scale * 5  # FIXME
         elements = [
             UIElement(
                 text=elem["text"],
                 translation=elem["translation"],
                 bbox=(
-                    int(elem["bbox"][0] * width_scale),
-                    int(elem["bbox"][1] * height_scale),
-                    int(elem["bbox"][2] * width_scale),
-                    int(elem["bbox"][3] * height_scale),
+                    int(elem["bbox"][0] * rscale),
+                    int(elem["bbox"][1] * rscale),
+                    int(elem["bbox"][2] * rscale),
+                    int(elem["bbox"][3] * rscale),
                 ),
             )
             for elem in data["elements"]
@@ -160,7 +170,11 @@ def analyze_with_claude(
 
         if settings.debug:
             print(f"Found {len(data['elements'])} text elements")
-        return AnalysisResult(elements=elements)
+        return AnalysisResult(
+            title=data.get("title", ""),
+            source_language=data.get("source_languages", [])[0],
+            elements=elements,
+        )
 
     except Exception as e:
         raise click.ClickException(f"Error processing response: {str(e)}")
@@ -168,8 +182,9 @@ def analyze_with_claude(
 
 def get_analysis_prompt(target_lang: str) -> str:
     return f"""
-    Analyze this UI screenshot. First, tell me the dimensions of the image
-    you're analyzing. Then, for each text element or button:
+    Analyze this UI screenshot. First, suggest a title for the image.
+    Then, identify the source languages of the text in the image.
+    Then, for each text element or button:
     1. Identify its location using pixel coordinates (x1,y1,x2,y2 coordinates)
     2. Extract the original text
     3. Provide a translation to {target_lang} if the text is not already in
@@ -177,10 +192,8 @@ def get_analysis_prompt(target_lang: str) -> str:
 
     Return the results in this exact JSON format:
     {{
-        "image_dimensions": {{
-            "width": width_in_pixels,
-            "height": height_in_pixels
-        }},
+        "title": "image title",
+        "source_languages": ["en", "zh", "ja", ...],
         "elements": [
             {{
                 "bbox": [x1, y1, x2, y2],
@@ -193,5 +206,5 @@ def get_analysis_prompt(target_lang: str) -> str:
     Notes:
     - Use pixel coordinates for bbox values
     - Include only text elements and buttons
-    - If text is already in {target_lang}, use it as the translation
+    - If text is already in {target_lang}, leave the translation empty
     """

@@ -10,6 +10,8 @@ def identify_scene_properties(
 ) -> AnalysisResult:
     """Identify the languages and suggest a title. Some services may also
     perform OCR and translation."""
+    if settings.debug:
+        print(f"Identifying scene properties with {settings.scene_analysis_service}...")
     if settings.scene_analysis_service == "openai":
         return openai_scene_analysis(image, settings)
     elif settings.scene_analysis_service == "claude":

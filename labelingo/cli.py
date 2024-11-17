@@ -49,7 +49,7 @@ from .utils import get_rotated_image_data, open_file
 )
 @click.option(
     "--label-location",
-    type=click.Choice(["claude", "tesseract", "easyocr", "paddleocr"]),
+    type=click.Choice(["claude", "tesseract", "easyocr", "paddleocr", "none"]),
     default="easyocr",
     help="OCR backend to use for text detection",
 )
@@ -88,12 +88,15 @@ def main(
         locale_info = locale.getlocale()[0]
         language = locale_info.split("_")[0] if locale_info else "en"
 
-    label_location_service = cast(LabelLocationService, label_location.lower())
-    scene_analysis = cast(SceneAnalysisService, scene_analysis.lower())
+    label_location = label_location.lower()
+    label_location_service = (
+        cast(LabelLocationService, label_location) if label_location != "none" else None
+    )
+    scene_analysis_service = cast(SceneAnalysisService, scene_analysis.lower())
     settings = AnalysisSettings(
         target_lang=language,
         label_location_service=label_location_service,
-        scene_analysis_service=scene_analysis,
+        scene_analysis_service=scene_analysis_service,
         no_cache=no_cache,
         debug=debug,
     )

@@ -12,7 +12,7 @@ OutputFormat = Literal["svg", "png", "pdf"]
 class AnalysisSettings:
     target_lang: str
     scene_analysis_service: SceneAnalysisService = "openai"
-    label_location_service: LabelLocationService = "easyocr"
+    label_location_service: LabelLocationService | None = "easyocr"
     no_cache: bool = False
     debug: bool = False
 

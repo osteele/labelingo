@@ -323,6 +323,9 @@ def find_label_locations(
     scene_analysis: AnalysisResult,
     source_language: str,
 ) -> AnalysisResult:
+    if settings.label_location_service is None:
+        return scene_analysis
+
     if settings.label_location_service == "claude":
         return analyze_with_claude(image, settings)
 
