@@ -12,7 +12,12 @@ from .annotator import SVGAnnotator
 from .response_cache import ResponseCache
 from .services import analyze_ui
 from .svg_converter import save_with_format
-from .types import AnalysisSettings, OcrServiceType, OutputFormat, TranslationService
+from .types import (
+    AnalysisSettings,
+    LabelLocationService,
+    OutputFormat,
+    SceneAnalysisService,
+)
 from .utils import get_rotated_image_data, open_file
 
 

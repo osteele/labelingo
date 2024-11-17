@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from typing import List, Literal, Tuple
 
 # Define the valid backend types
-OcrServiceType = Literal["claude", "tesseract", "easyocr", "paddleocr"]
-TranslationService = Literal["openai", "claude"]
+SceneAnalysisService = Literal["openai", "claude"]
+LabelLocationService = Literal["claude", "tesseract", "easyocr", "paddleocr"]
 
 OutputFormat = Literal["svg", "png", "pdf"]
 
@@ -11,8 +11,8 @@ OutputFormat = Literal["svg", "png", "pdf"]
 @dataclass
 class AnalysisSettings:
     target_lang: str
-    ocr_service: OcrServiceType = "easyocr"
-    translation_service: TranslationService = "openai"
+    scene_analysis_service: SceneAnalysisService = "openai"
+    label_location_service: LabelLocationService = "easyocr"
     no_cache: bool = False
     debug: bool = False
 
@@ -20,8 +20,8 @@ class AnalysisSettings:
 @dataclass
 class UIElement:
     text: str
-    translation: str | None
-    bbox: Tuple[int, int, int, int]  # x1, y1, x2, y2
+    translation: str | None = None
+    bbox: Tuple[int, int, int, int] | None = None  # x1, y1, x2, y2
 
 
 @dataclass

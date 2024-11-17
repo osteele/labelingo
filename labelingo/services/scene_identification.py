@@ -10,11 +10,11 @@ def identify_scene_properties(
 ) -> AnalysisResult:
     """Identify the languages and suggest a title. Some services may also
     perform OCR and translation."""
-    if settings.translation_service == "openai":
+    if settings.scene_analysis_service == "openai":
         return openai_scene_analysis(image, settings)
-    elif settings.translation_service == "claude":
+    elif settings.scene_analysis_service == "claude":
         return analyze_with_claude(image, settings)
     else:
         raise NotImplementedError(
-            f"Translation service {settings.translation_service} not implemented"
+            f"Translation service {settings.scene_analysis_service} not implemented"
         )

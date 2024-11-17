@@ -49,12 +49,6 @@ def analyze_ui(image: Image.Image, settings: AnalysisSettings) -> AnalysisResult
     ocr_texts = {element.text for element in result.elements}
     for text, translation in translations.items():
         if text not in ocr_texts:
-            result.elements.append(
-                UIElement(
-                    text=text,
-                    translation=translation,
-                    bbox=(0, 0, 0, 0),  # Null bounding box
-                )
-            )
+            result.elements.append(UIElement(text=text, translation=translation))
 
     return result

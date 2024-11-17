@@ -57,7 +57,7 @@ class SVGAnnotator:
             text_width = self.estimate_text_width(text, self.text_font_size)
 
             # Determine which side based on position (will match final placement)
-            if any(coord != 0 for coord in element.bbox):
+            if element.bbox:
                 center_x = (element.bbox[0] + element.bbox[2]) / 2 * self.scale
                 if center_x > self.width / 2:
                     max_right_text = max(max_right_text, text_width)
@@ -107,7 +107,7 @@ class SVGAnnotator:
 
         # Sort elements by their vertical position (y coordinate)
         def get_y_position(element: UIElement) -> float:
-            if any(coord != 0 for coord in element.bbox):
+            if element.bbox:
                 return element.bbox[1] * self.scale
             return float("inf")  # Put elements without bbox at the end
 
@@ -126,9 +126,7 @@ class SVGAnnotator:
             translation = (
                 html.escape(element.translation) if element.translation else None
             )
-            has_bbox = any(coord != 0 for coord in element.bbox)
-
-            if has_bbox:
+            if element.bbox:
                 # Add padding to bounding boxes
                 box_padding = 4
                 x1 = int(element.bbox[0] * self.scale) + self.left_margin - box_padding

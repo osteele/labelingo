@@ -323,18 +323,20 @@ def find_label_locations(
     scene_analysis: AnalysisResult,
     source_language: str,
 ) -> AnalysisResult:
-    if settings.ocr_service == "claude":
+    if settings.label_location_service == "claude":
         return analyze_with_claude(image, settings)
 
     backend_fn = {
         "tesseract": analyze_with_tesseract,
         "easyocr": analyze_with_easyocr,
         "paddleocr": analyze_with_paddleocr,
-    }[settings.ocr_service]
+    }[settings.label_location_service]
 
     # Calculate cache key using backend name, version, and image hash
     image_hash = hashlib.sha256(image.tobytes()).hexdigest()
-    cache_key = f"ocr_{settings.ocr_service}_v{OCR_BACKEND_VERSION}_{image_hash}"
+    cache_key = (
+        f"ocr_{settings.label_location_service}_v{OCR_BACKEND_VERSION}_{image_hash}"
+    )
 
     cache = ResponseCache()
     cached_json = None if settings.no_cache else cache.get("ocr", cache_key)
@@ -355,7 +357,7 @@ def find_label_locations(
             elements = None
 
     if cached_json is None or elements is None:
-        print(f"Analyzing with {settings.ocr_service} backend...")
+        print(f"Analyzing with {settings.label_location_service} backend...")
         elements = backend_fn(image, source_language)
         # Cache the elements as JSON
         elements_data = [

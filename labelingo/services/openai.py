@@ -108,11 +108,7 @@ def openai_scene_analysis(
         title=result_dict.get("title", None),
         source_language=source_languages[0],
         elements=[
-            UIElement(
-                text=elem["text"],
-                translation=elem["translation"],
-                bbox=(0, 0, 0, 0),
-            )
+            UIElement(text=elem["text"], translation=elem["translation"])
             for elem in result_dict.get("elements", [])
         ],
     )
